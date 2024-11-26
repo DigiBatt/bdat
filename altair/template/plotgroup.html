@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <div style="float: left">
+        {% for i in items %}
+        <a href="{{ plot_url + i }}" target="Plot" style="color: black; font-weight: bold; text-decoration: none">{{ i }}</a><br>
+        {% endfor %}
+    </div>
+    <iframe src="{{ plot_url + items[0] }}" name="Plot" style="width: 1400px; height: 800px; float: right; border: none"></iframe>
+</body>
+
+</html>

@@ -1,0 +1,96 @@
+stages:
+  - test
+  - package
+  - docker
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PACKAGE_NAME: bdat
+
+cache:
+  paths:
+    - .cache/pip
+
+pre-commit:
+  stage: test
+  image: git.isea.rwth-aachen.de:5050/ess/docker/pre-commit:latest
+  script:
+    - pre-commit run --all-files
+
+pytest:
+  stage: test
+  image: python:3.10
+  script:
+    - pip install -r requirements.txt
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2034/packages/pypi/simple --upgrade mvl
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2493/packages/pypi/simple --upgrade cadi_templates
+    - pip install .
+    - pytest --cov "$PACKAGE_NAME" ./tests
+    - coverage xml
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+mypy:
+  stage: test
+  image: python:3.10
+  script:
+    - pip install -r requirements.txt
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2034/packages/pypi/simple --upgrade mvl
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2493/packages/pypi/simple --upgrade cadi_templates
+    - pip install .
+    - mypy ./src
+
+package:
+  stage: package
+  image: python:3.10
+  rules:
+    - changes:
+        - src/bdat/version
+      when: never
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+  script:
+    - pip install twine build
+    - python -m build
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
+
+docker-prefect:
+  stage: docker
+  image: docker:20.10
+  rules:
+    - changes:
+        - src/bdat/version
+        - prefect/*
+      when: never
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - BDAT_VERSION=$(cat src/bdat/version)
+    - VERSION_TAG="${CI_REGISTRY_IMAGE}:${BDAT_VERSION}-prefect"
+    - LATEST_TAG="${CI_REGISTRY_IMAGE}:latest-prefect"
+    - docker build ./prefect --cache-from "$LATEST_TAG" --tag "$VERSION_TAG" --build-arg "CI_JOB_TOKEN=${CI_JOB_TOKEN}"
+    - docker push "$VERSION_TAG"
+    - docker image tag "$VERSION_TAG" "$LATEST_TAG"
+    - docker push "$LATEST_TAG"
+
+pages:
+  stage: deploy
+  image: python:3.10
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  artifacts:
+    paths:
+      - public
+  script:
+    - pip install -r requirements.txt
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2034/packages/pypi/simple --upgrade mvl
+    - pip install --index-url https://gitlab-ci-token:${CI_JOB_TOKEN}@git.isea.rwth-aachen.de/api/v4/projects/2493/packages/pypi/simple --upgrade cadi_templates
+    - pip install .
+    - sphinx-apidoc -o ./sphinx/bdat ./src
+    - make -C ./sphinx html
+    - cp -r ./sphinx/_build/html/ ./public

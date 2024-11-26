@@ -1,0 +1,10 @@
+src/*.egg-info
+.coverage
+coverage.xml
+__pycache__
+/data
+config.json
+/altair/out
+/sphinx/_build
+/sphinx/bdat
+.mypy_cache
