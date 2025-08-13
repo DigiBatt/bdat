@@ -4,19 +4,7 @@ Setup
 Installation
 ------------
 
-Packaged version
-^^^^^^^^^^^^^^^^
-
-A prepackaged version can be installed from the ISEA Gitlab server:
-
-.. code-block:: bash
-
-    pip install --index-url https://token:glpat-usE95KpsDqnxVyuzGUTT@git.isea.rwth-aachen.de/api/v4/projects/2305/packages/pypi/simple bdat
-
-Development vesion
-^^^^^^^^^^^^^^^^^^
-
-The source code of the project can be found in its `GitLab repository <https://git.isea.rwth-aachen.de/Personal-Projects/ESS/eba/idap/bdat>`__.
+The source code of the project can be found in its `GitHub repository <https://github.com/DigiBatt/bdat>`__.
 The required dependencies and the package itself can be installed using pip:
 
 .. code-block:: bash
@@ -43,7 +31,7 @@ An example config looks like this:
         "databases": {
             "kadi": {
                 "type": "kadi",
-                "url": "https://cadi.isea.rwth-aachen.de",
+                "url": "https://example.org",
                 "token": "pat_xxxxxxxxxxxxx"
             }
         }
