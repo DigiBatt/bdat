@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 import bdat.entities as entities
-from bdat.entities.cadi_templates.cycling import Cycling
+from bdat.entities.cadi_templates import Cycling
 from bdat.entities.dataspec.data_spec import DataSpec
 from bdat.entities.dataspec.unit import Unit
 

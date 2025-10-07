@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import bdat.entities.patterns.pattern_eval as pattern_eval
 from bdat.database.storage.entity import Filetype, file, identifier
-from bdat.entities import Cycling
+from bdat.entities.cadi_templates import Cycling
 from bdat.entities.data_processing import DataProcessing
 from bdat.entities.steps.steplist import Steplist
 

@@ -1,17 +1,6 @@
 from . import group, patterns, plots, steps, test
 from .aging import AgingConditions, AgingData, CellLife, Testmatrix, TestmatrixEntry
-from .cadi_templates import (
-    Activity,
-    ActivitySet,
-    Battery,
-    BatterySpecies,
-    CyclerCircuit,
-    Cycling,
-    Entity,
-    LegalEntity,
-    Project,
-    Tool,
-)
+from .cadi_templates import *
 from .cadi_templates.types import *
 from .data_processing import DataProcessing
 from .dataspec import *

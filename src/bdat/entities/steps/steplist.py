@@ -4,7 +4,7 @@ from datetime import datetime
 
 import bdat.entities.steps.step as step
 from bdat.database.storage.entity import Filetype, file, identifier
-from bdat.entities import Cycling
+from bdat.entities.cadi_templates import Cycling
 from bdat.entities.data_processing import DataProcessing
 
 if typing.TYPE_CHECKING:

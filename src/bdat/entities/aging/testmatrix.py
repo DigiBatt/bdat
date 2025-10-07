@@ -2,8 +2,8 @@ import typing
 from dataclasses import dataclass
 
 from bdat.database.storage.entity import Embedded, Filetype, file, identifier
-from bdat.entities import Battery, Project
 from bdat.entities.aging.aging_conditions import AgingConditions
+from bdat.entities.cadi_templates import Battery, Project
 from bdat.entities.data_processing import DataProcessing
 
 

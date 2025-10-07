@@ -8,6 +8,7 @@ from datetime import datetime
 import click
 import pandas as pd
 
+import bdat
 import bdat.database.storage.entity
 import bdat.entities as entities
 import bdat.functions as functions

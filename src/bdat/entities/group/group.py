@@ -4,11 +4,13 @@ from datetime import datetime
 
 from bson import ObjectId
 
-from bdat.entities.cadi_templates.activityset import ActivitySet
-from bdat.entities.cadi_templates.battery import Battery
-from bdat.entities.cadi_templates.batteryspecies import BatterySpecies
-from bdat.entities.cadi_templates.cycling import Cycling
-from bdat.entities.cadi_templates.project import Project
+from bdat.entities.cadi_templates import (
+    ActivitySet,
+    Battery,
+    BatterySpecies,
+    Cycling,
+    Project,
+)
 from bdat.entities.data_processing import DataProcessing
 
 

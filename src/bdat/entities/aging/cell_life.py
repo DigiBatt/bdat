@@ -2,9 +2,9 @@ import typing
 from dataclasses import dataclass
 
 from bdat.database.storage.entity import Filetype, file, identifier
-from bdat.entities import Battery
 from bdat.entities.aging.aging_conditions import AgingConditions
 from bdat.entities.aging.testmatrix import Testmatrix
+from bdat.entities.cadi_templates import Battery
 from bdat.entities.data_processing import DataProcessing
 from bdat.entities.patterns import DischargeCapacityEval, PulseEval
 from bdat.entities.patterns.test_eval import TestEval

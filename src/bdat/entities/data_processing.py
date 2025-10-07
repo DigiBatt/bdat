@@ -3,8 +3,7 @@ import typing
 from dataclasses import dataclass, field
 
 import bdat
-from bdat.entities.cadi_templates.activity import Activity
-from bdat.entities.cadi_templates.entity import Entity
+from bdat.entities.cadi_templates import Activity, Entity
 
 
 def get_flow_id() -> str | None:
