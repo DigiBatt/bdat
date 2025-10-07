@@ -1,5 +1,5 @@
 from . import group, patterns, plots, steps, test
-from .aging import AgingConditions, AgingData, CellLife
+from .aging import AgingConditions, AgingData, CellLife, Testmatrix, TestmatrixEntry
 from .cadi_templates import (
     Activity,
     ActivitySet,

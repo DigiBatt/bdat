@@ -1,4 +1,5 @@
 import datetime
+import io
 import os
 import typing
 
@@ -22,6 +23,7 @@ def import_tests(
     cell_column: str,
     start_column: str,
     end_column: str,
+    info_column: str | None,
     time_format: str,
     target: CollectionId,
 ) -> typing.Iterable[str]:
@@ -53,28 +55,38 @@ def import_tests(
             end = None
         else:
             end = datetime.datetime.strptime(row[end_column], time_format)
-        data_filename = filename.format(cell=cellname, start=start, end=end)
+        info = None
+        if info_column:
+            info = row[info_column]
+        data_filename = filename.format(cell=cellname, start=start, end=end, info=info)
         basename = os.path.basename(data_filename)
         testname, ext = os.path.splitext(basename)
         if ext.lower() == ".parquet":
-            test = entities.Cycling(
-                title=testname,
-                actor=actor,
-                tool=circuit,
-                location=None,
-                object=cell,
-                set=set,
-                project=project,
-                parent=None,
-                environmentSection=None,
-                start=None,
-                end=None,
-            )
-            storage.put(target, test)
-            with open(data_filename, "rb") as f:
-                storage.put_file(
-                    test.res_id_or_raise(), f, basename, "application/octet-stream"
-                )
-            yield test.res_id_or_raise().to_str()
+            f: typing.Any = open(data_filename, "rb")
+        elif ext.lower() in [".nda", ".ndax"]:
+            import NewareNDA  # type: ignore
+
+            df = NewareNDA.read(data_filename)
+            f = io.BytesIO()
+            df.to_parquet(f)
+            f.seek(0)
         else:
             raise NotImplementedError("Can only read parquet files")
+        test = entities.Cycling(
+            title=testname,
+            actor=actor,
+            tool=circuit,
+            location=None,
+            object=cell,
+            set=set,
+            project=project,
+            parent=None,
+            environmentSection=None,
+            start=None,
+            end=None,
+        )
+        storage.put(target, test)
+        storage.put_file(
+            test.res_id_or_raise(), f, basename, "application/octet-stream"
+        )
+        yield test.res_id_or_raise().to_str()

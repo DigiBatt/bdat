@@ -2,11 +2,9 @@ import typing
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from bson import ObjectId
-
-import bdat.entities as entities
 import bdat.entities.steps.step as step
 from bdat.database.storage.entity import Filetype, file, identifier
+from bdat.entities import Cycling
 from bdat.entities.data_processing import DataProcessing
 
 if typing.TYPE_CHECKING:
@@ -21,16 +19,14 @@ class Steplist(DataProcessing):
     """List of steps found in a cycling test."""
 
     steps: typing.List[step.Step]
-    test: "entities.Cycling"
+    test: Cycling
     plotdata: typing.Dict[str, typing.List[typing.Dict]] | None = None
 
     @typing.overload
-    def __getitem__(self, index: int) -> step.Step:
-        ...
+    def __getitem__(self, index: int) -> step.Step: ...
 
     @typing.overload
-    def __getitem__(self, index: slice) -> typing.List[step.Step]:
-        ...
+    def __getitem__(self, index: slice) -> typing.List[step.Step]: ...
 
     def __getitem__(self, index: int | slice) -> step.Step | typing.List[step.Step]:
         return self.steps[index]
@@ -73,7 +69,7 @@ class Steplist(DataProcessing):
         charge: float,
         discharge: float,
         age: float,
-        date: float,
+        date: datetime,
         soc: float | None,
         capacity: float | None,
     ):
@@ -82,37 +78,23 @@ class Steplist(DataProcessing):
         if soc is not None and capacity is not None:
             self.continue_soc(soc, capacity)
         starttime = datetime.timestamp(self.test.start) if self.test.start else 0
-        age = age + starttime - date
+        age = age + starttime - datetime.timestamp(date)
         self.continue_counters(charge, discharge, age)
 
-    def continue_from_test(self, previous: "TestinfoEval"):
-        if previous.lastCharge is None:
+    def continue_from_test(self, test: "Cycling", testinfo: "TestinfoEval"):
+        if testinfo.lastCharge is None:
             raise Exception("Previous test must have a charge counter")
-        if previous.lastDischarge is None:
+        if testinfo.lastDischarge is None:
             raise Exception("Previous test must have a discharge counter")
-        if previous.lastAge is None:
+        if testinfo.firstAge is None:
             raise Exception("Previous test must have an age counter")
+        if test.start is None:
+            raise Exception("Previous test must have an end date")
         self.continue_from_counters(
-            previous.lastCharge,
-            previous.lastDischarge,
-            previous.lastAge,
-            previous.end,
-            previous.lastSoc,
-            previous.lastCapacity,
-        )
-
-    def continue_from_step(self, previous: step.Step):
-        if previous.chargeEnd is None:
-            raise Exception("Previous step must have a charge counter")
-        if previous.dischargeEnd is None:
-            raise Exception("Previous step must have a discharge counter")
-        if previous.ageEnd is None:
-            raise Exception("Previous step must have an age counter")
-        self.continue_from_counters(
-            previous.chargeEnd,
-            previous.dischargeEnd,
-            previous.ageEnd,
-            previous.end,
-            previous.socEnd,
-            previous.capacity,
+            testinfo.lastCharge,
+            testinfo.lastDischarge,
+            testinfo.firstAge,
+            test.start,
+            testinfo.lastSoc,
+            testinfo.lastCapacity,
         )

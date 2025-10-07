@@ -6,40 +6,43 @@ import pandas as pd
 from bdat.database.storage.entity import Entity
 from bdat.database.storage.storage import Storage
 from bdat.entities.group import EvalGroup
-from bdat.entities.patterns import DischargeCapacityEval
+from bdat.entities.patterns import PulseEval
 from bdat.entities.plots import Plotdata
 from bdat.plots.plot import plot
 from bdat.tools.misc import make_round_function, round_to_n
 
 
-@plot("cap")
-def plot_cap(storage: Storage, evalgroup: Entity) -> Plotdata:
+@plot("res")
+def plot_res(storage: Storage, evalgroup: Entity) -> Plotdata:
     if not isinstance(evalgroup, EvalGroup):
         raise Exception("Invalid resource type")
     data = []
 
-    round_current = lambda x: round_to_n(x.dischargeCurrent, 2)
-
+    round_current = lambda x: round_to_n(x.current, 2)
+    round_duration = lambda x: round_to_n(x.duration, 2)
+    round_soc = lambda x: round_to_n(x.soc, 2)
     if evalgroup.unique_key:
         for k in evalgroup.unique_key:
-            if k.startswith("dischargeCurrent"):
+            if k.startswith("current"):
                 round_current = make_round_function(k, getattr)
-                break
+            elif k.startswith("duration"):
+                round_duration = make_round_function(k, getattr)
+            elif k.startswith("soc"):
+                round_soc = make_round_function(k, getattr)
 
-    evalgroup.evaldata.sort(
-        key=lambda e: e.chargeThroughput if e.chargeThroughput else 0
-    )
-    firstDate: typing.Dict[int, float] = {}
+    evalgroup.evaldata.sort(key=lambda e: e.age if e.age else 0)
     initCtp: typing.Dict[str, float] = {}
 
     for pe in evalgroup.evaldata:
-        if not isinstance(pe, DischargeCapacityEval):
+        if not isinstance(pe, PulseEval):
             continue
         e = pe.testEval
         if e is None:
             raise Exception("Missing TestEval in PatternEval")
         if pe.chargeThroughput is None:
             raise Exception("Missing charge throughput")
+        if pe.age is None:
+            raise Exception("Missing age")
         speciesName = None
         species = e.test.object.type
         if species:
@@ -49,27 +52,35 @@ def plot_cap(storage: Storage, evalgroup: Entity) -> Plotdata:
         date = (
             datetime.datetime(0, 0, 0) if e.test.start is None else e.test.start
         ) + datetime.timedelta(0, pe.start)
-        age = date.timestamp() - firstDate.setdefault(
-            e.test.object.res_id_or_raise().id, date.timestamp()
-        )
         cellname = e.test.object.title
         if not cellname in initCtp:
             initCtp[cellname] = pe.chargeThroughput
         ctp = pe.chargeThroughput - initCtp[cellname]
+
+        # age = date.timestamp() - firstDate.setdefault(
+        #     e.test.object.res_id_or_raise().id, date.timestamp()
+        # )
         data.append(
             {
-                "capacity": abs(pe.capacity),
-                "specimen": e.test.object.title,
+                "impedance": abs(pe.impedance),
+                "specimen": cellname,
                 "species": speciesName,
                 "test": e.test.title,
-                "age": age / (60 * 60 * 24),
-                "time": date,
-                "current": abs(round_current(pe)),
+                "testeval": e.res_id_or_raise().to_str(),
+                "steplist": e.steps.res_id_or_raise().to_str(),
+                "age": pe.age / (60 * 60 * 24),
                 "ctp": ctp,
+                "time": date,
+                "current": round_current(pe),
+                "duration": round_duration(pe),
+                "soc": round_soc(pe),
             }
         )
 
     df = pd.DataFrame.from_records(data)
     return Plotdata(
-        "capacity plot", evalgroup, "cap", {"capacity": df.to_dict(orient="records")}
+        "resistance plot",
+        evalgroup,
+        "res_ctrl",
+        {"resistance": df.to_dict(orient="records")},
     )

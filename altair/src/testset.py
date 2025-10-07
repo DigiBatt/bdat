@@ -12,9 +12,17 @@ chart = (
         alt.X2("end:T", title="time"),
         alt.Y("cell:O"),
         alt.Href("link:N"),
-        tooltip=["cell:O", "circuit:N", "start:T", "end:T", "title:N", "has_eval:N"],
+        tooltip=[
+            "cell:O",
+            "circuit:N",
+            "start:T",
+            "end:T",
+            "title:N",
+            "has_eval:N",
+            "program:N",
+        ],
         color=alt.Color(
-            "title:N", title="program", scale=alt.Scale(scheme="tableau20")
+            "program:N", title="program", scale=alt.Scale(scheme="tableau20")
         ),
         opacity=opacity,
     )

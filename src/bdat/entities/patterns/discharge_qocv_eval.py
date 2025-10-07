@@ -10,7 +10,7 @@ class DischargeQOCVEval(PatternEval):
     eocVoltage: float
     cvDuration: float | None
     pauseDuration: float
-    relaxedVoltage: float
+    relaxedVoltage: float | None
     dischargeCurrent: float
     dischargeDuration: float
     capacity: float
@@ -24,6 +24,8 @@ class DischargeQOCVEval(PatternEval):
     dvaY: List[float] | None = None
     icaX: List[float] | None = None
     icaY: List[float] | None = None
+    smoothDvaY: List[float] | None = None
+    smoothIcaY: List[float] | None = None
     cutoffCurrent: float | None = None
     ccDuration: float | None = None
     temperature: float | None = None

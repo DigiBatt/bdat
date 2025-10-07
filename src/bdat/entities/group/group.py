@@ -1,9 +1,14 @@
 import typing
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from bson import ObjectId
 
-import bdat.entities as entities
+from bdat.entities.cadi_templates.activityset import ActivitySet
+from bdat.entities.cadi_templates.battery import Battery
+from bdat.entities.cadi_templates.batteryspecies import BatterySpecies
+from bdat.entities.cadi_templates.cycling import Cycling
+from bdat.entities.cadi_templates.project import Project
 from bdat.entities.data_processing import DataProcessing
 
 
@@ -11,13 +16,15 @@ from bdat.entities.data_processing import DataProcessing
 class Group(DataProcessing):
     id: ObjectId | None = field(init=False)
     collection_id: str | None = None
-    testset: "entities.ActivitySet | None" = None
-    project: "entities.Project | None" = None
-    species: "entities.BatterySpecies | None" = None
-    specimen: "entities.Battery | None" = None
-    test: "entities.Cycling | None" = None
+    testset: ActivitySet | None = None
+    project: Project | None = None
+    species: BatterySpecies | None = None
+    specimen: Battery | None = None
+    test: Cycling | None = None
     unique: str | None = None
     unique_link: typing.Tuple[str, ...] | None = None
     unique_key: typing.Tuple[str, ...] | None = None
     filter: typing.Tuple[str, ...] | None = None
     exclude_tests: typing.Tuple[str, ...] | None = None
+    before: datetime | None = None
+    after: datetime | None = None

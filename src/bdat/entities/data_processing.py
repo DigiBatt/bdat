@@ -3,7 +3,7 @@ import typing
 from dataclasses import dataclass, field
 
 import bdat
-import bdat.entities as entities
+from bdat.entities.cadi_templates.activity import Activity
 from bdat.entities.cadi_templates.entity import Entity
 
 
@@ -15,8 +15,8 @@ def get_flow_id() -> str | None:
 class DataProcessing(Entity):
     tool: str = field(init=False, default="bdat")
     toolVersion: str = field(init=False, default=bdat.get_version())
-    state: typing.Literal[
-        "pending", "running", "finished", "failed", "preliminary"
-    ] = field(init=False, default="finished")
-    source: "entities.Activity | None" = field(init=False, default_factory=lambda: None)
+    state: typing.Literal["pending", "running", "finished", "failed", "preliminary"] = (
+        field(init=False, default="finished")
+    )
+    source: Activity | None = field(init=False, default_factory=lambda: None)
     prefect_flow_id: str | None = field(init=False, default_factory=get_flow_id)

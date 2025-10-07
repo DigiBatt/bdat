@@ -49,9 +49,15 @@ class SteplistPattern(ABC):
 
 class Series(SteplistPattern):
     patterns: list[SteplistPattern]
+    duration: typing.Tuple[float, float] | None = None
 
-    def __init__(self, patterns: list[SteplistPattern]):
+    def __init__(
+        self,
+        patterns: list[SteplistPattern],
+        duration: typing.Tuple[float, float] | None = None,
+    ):
         self.patterns = patterns
+        self.duration = duration
 
     def match_at_position(self, steplist: list[Step], position: int) -> Match | None:
         length = 0
@@ -64,6 +70,14 @@ class Series(SteplistPattern):
                 length += m.length
                 subMatches.append(m)
             else:
+                return None
+        if self.duration:
+            totalDuration = sum(
+                [s.duration for s in steplist[position : position + length]]
+            )
+            if not (
+                totalDuration >= self.duration[0] and totalDuration <= self.duration[1]
+            ):
                 return None
         return Match(
             position,
@@ -224,3 +238,30 @@ class RepeatSteps(SteplistPattern):
 class Optional(Repeat):
     def __init__(self, pattern: SteplistPattern):
         super().__init__(pattern, 0, 1)
+
+
+class Or(SteplistPattern):
+    patterns: list[SteplistPattern]
+
+    def __init__(
+        self,
+        *patterns: SteplistPattern,
+    ):
+        self.patterns = list(patterns)
+
+    def match_at_position(self, steplist: list[Step], position: int) -> Match | None:
+        for i in range(len(self.patterns)):
+            m = self.patterns[i].match_at_position(steplist, position)
+            if m is not None:
+                return Match(
+                    position,
+                    position + m.length,
+                    m.length,
+                    self,
+                    steplist[position : position + m.length],
+                    [m],
+                )
+        return None
+
+    def to_str(self) -> str:
+        return f"or({','.join([p.to_str() for p in self.patterns])})"

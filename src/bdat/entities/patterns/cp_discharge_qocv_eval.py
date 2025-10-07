@@ -24,5 +24,7 @@ class CPDischargeQOCVEval(PatternEval):
     dvaY: List[float] | None = None
     icaX: List[float] | None = None
     icaY: List[float] | None = None
+    smoothDvaY: List[float] | None = None
+    smoothIcaY: List[float] | None = None
     cutoffCurrent: float | None = None
     temperature: float | None = None

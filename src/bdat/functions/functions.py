@@ -16,15 +16,25 @@ from bdat.database.exceptions.database_conflict_exception import (
     DatabaseConflictException,
 )
 from bdat.database.storage.entity import Entity
-from bdat.database.storage.resource_id import CollectionId, ResourceId
+from bdat.database.storage.resource_id import (
+    CollectionId,
+    IdType,
+    ResourceId,
+    ResourceType,
+)
 from bdat.database.storage.storage import Storage
 from bdat.dataimport import import_rules
+from bdat.entities.aging.aging_conditions import combine_conditions
 from bdat.entities.patterns.test_eval import TestEval
 from bdat.entities.plots import Plotdata
 from bdat.entities.steps.steplist import Steplist
 from bdat.entities.test.cycling_data import CyclingData
-from bdat.exceptions import NoCyclingDataException
-from bdat.exceptions.missing_dependency_exception import MissingDependencyException
+from bdat.exceptions import (
+    MissingDependencyException,
+    NoCyclingDataException,
+    NoDatafileException,
+    ParquetFormatException,
+)
 from bdat.patterns import eval_rules
 from bdat.plots.plot import plotfunctions
 from bdat.plots.plot_aging_data import plot_aging_data
@@ -41,7 +51,12 @@ from bdat.resources.patterns import (
     UniformCycling,
 )
 from bdat.tools.cli import print_info
-from bdat.tools.misc import is_similar, make_filter, make_getattr, make_round_function
+from bdat.tools.misc import (
+    is_similar_obj,
+    make_filter,
+    make_getattr,
+    make_round_function,
+)
 
 
 @typing.overload
@@ -50,8 +65,7 @@ def steps(
     test_id: ResourceId[str, entities.Cycling],
     target_id: CollectionId | None = None,
     replace: ResourceId[bson.ObjectId, entities.Steplist] | bool = False,
-) -> Steplist | None:
-    ...
+) -> Steplist | None: ...
 
 
 @typing.overload
@@ -61,8 +75,7 @@ def steps(
     target_id: CollectionId | None,
     replace: ResourceId[bson.ObjectId, entities.Steplist] | bool,
     return_str: typing.Literal[False],
-) -> Steplist | None:
-    ...
+) -> Steplist | None: ...
 
 
 @typing.overload
@@ -72,8 +85,7 @@ def steps(
     target_id: CollectionId | None,
     replace: ResourceId[bson.ObjectId, entities.Steplist] | bool,
     return_str: typing.Literal[True],
-) -> str | None:
-    ...
+) -> str | None: ...
 
 
 def steps(
@@ -88,16 +100,15 @@ def steps(
         raise Exception("Could not find resource")
     # dataId = ResourceId(test_id.collection, test.data, entities.Cycling)
     if not import_rules.could_be_cycling(test):
-        return None
+        raise NoCyclingDataException(test)
     datafile = storage.get_file(test_id)
     if datafile is None:
-        # raise Exception("Test has no data")
-        return None
-    df = pd.read_parquet(datafile)
+        raise NoDatafileException(test)
     try:
-        dataspec = import_rules.get_dataspec(test, df)
-    except NoCyclingDataException:
-        return None
+        df = pd.read_parquet(datafile)
+    except Exception as e:
+        raise ParquetFormatException(e)
+    dataspec = import_rules.get_dataspec(test, df)
     data = CyclingData(test, df, dataspec, 0, 0, None)
     try:
         steplist = bdat.steps.find_steps.find_linear_steps(data)
@@ -138,8 +149,7 @@ def patterns(
     patterntype: str | None,
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool = False,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...] = tuple(),
-) -> TestEval | None:
-    ...
+) -> TestEval | None: ...
 
 
 @typing.overload
@@ -152,8 +162,7 @@ def patterns(
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
     return_str: typing.Literal[False],
-) -> TestEval | None:
-    ...
+) -> TestEval | None: ...
 
 
 @typing.overload
@@ -166,8 +175,7 @@ def patterns(
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
     return_str: typing.Literal[True],
-) -> str | None:
-    ...
+) -> str | None: ...
 
 
 def patterns(
@@ -183,8 +191,8 @@ def patterns(
     steplist = storage.get(steplist_id)
     if steplist is None:
         raise Exception("Could not find steplist")
-    if len(steplist) == 0:
-        return None
+    # if len(steplist) == 0:
+    #     return None
     test = steplist.test.__get__(None, None)  # type: ignore
     test_id = test.res_id_or_raise()
     testlist = [
@@ -263,8 +271,7 @@ def battery_patterns(
     replace: bool = False,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...] = tuple(),
     skip_missing_steplists: bool = False,
-) -> typing.List[TestEval]:
-    ...
+) -> typing.List[TestEval]: ...
 
 
 @typing.overload
@@ -278,8 +285,7 @@ def battery_patterns(
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
     skip_missing_steplists: bool,
     return_str: typing.Literal[False],
-) -> typing.List[TestEval]:
-    ...
+) -> typing.List[TestEval]: ...
 
 
 @typing.overload
@@ -293,8 +299,7 @@ def battery_patterns(
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
     skip_missing_steplists: bool,
     return_str: typing.Literal[True],
-) -> typing.List[str]:
-    ...
+) -> typing.List[str]: ...
 
 
 def battery_patterns(
@@ -390,7 +395,7 @@ def __patterns(
     else:
         for eval in previous.evals:
             if isinstance(eval, entities.TestinfoEval):
-                steplist.continue_from_test(eval)
+                steplist.continue_from_test(previous.test, eval)
                 break
         else:
             raise RuntimeError(
@@ -423,7 +428,10 @@ def __patterns(
                 datafile = storage.get_file(test_id)
                 if datafile is None:
                     raise Exception("Test has no data")
-                df = pd.read_parquet(datafile)
+                try:
+                    df = pd.read_parquet(datafile)
+                except Exception as ex:
+                    raise ParquetFormatException(ex)
             dataspec = import_rules.get_dataspec(test, df)
             data = CyclingData(test, df, dataspec, 0, 0, None)
         else:
@@ -450,12 +458,45 @@ def __patterns(
     return testeval
 
 
+@typing.overload
+def plot(
+    storage: Storage,
+    resource_id: ResourceId[str, Entity] | Entity,
+    plot_type: str,
+    target_id: CollectionId | None,
+    replace: ResourceId[bson.ObjectId, entities.plots.Plotdata] | bool | None,
+) -> str: ...
+
+
+@typing.overload
+def plot(
+    storage: Storage,
+    resource_id: ResourceId[str, Entity] | Entity,
+    plot_type: str,
+    target_id: CollectionId | None,
+    replace: ResourceId[bson.ObjectId, entities.plots.Plotdata] | bool | None,
+    return_str: typing.Literal[True],
+) -> str: ...
+
+
+@typing.overload
+def plot(
+    storage: Storage,
+    resource_id: ResourceId[str, Entity] | Entity,
+    plot_type: str,
+    target_id: CollectionId | None,
+    replace: ResourceId[bson.ObjectId, entities.plots.Plotdata] | bool | None,
+    return_str: typing.Literal[False],
+) -> Plotdata: ...
+
+
 def plot(
     storage: Storage,
     resource_id: ResourceId[str, Entity] | Entity,
     plot_type: str,
     target_id: CollectionId | None = None,
     replace: ResourceId[bson.ObjectId, entities.plots.Plotdata] | bool | None = None,
+    return_str: bool = True,
 ) -> str | Plotdata:
     plot_function = plotfunctions[plot_type]
     if isinstance(resource_id, Entity):
@@ -468,41 +509,129 @@ def plot(
     plotdata.plottype = plot_type
     if target_id:
         if isinstance(replace, ResourceId):
-            return storage.replace(replace, plotdata).to_str()
+            storage.replace(replace, plotdata)
         else:
             try:
-                return storage.put(target_id, plotdata).to_str()
+                storage.put(target_id, plotdata)
             except DatabaseConflictException as e:
-                if replace:
+                if replace == True:
                     replace_id: ResourceId[int, Plotdata] = ResourceId(
                         target_id, e.conflicting_id, Plotdata
                     )
-                    return storage.replace(replace_id, plotdata).to_str()
+                    storage.replace(replace_id, plotdata)
                 else:
                     raise e
+        if return_str:
+            return plotdata.res_id_or_raise().to_str()
+        else:
+            return plotdata
     else:
-        return plotdata
+        if return_str:
+            return pprint.pformat(Storage.res_to_dict(plotdata))
+        else:
+            return plotdata
 
 
+@typing.overload
 def group(
     storage: Storage,
-    res_id: typing.Tuple[ResourceId[str, Entity], ...],
+    res_id: typing.Tuple[ResourceId[IdType, Entity], ...],
     target_id: CollectionId | None,
     collection_id: CollectionId | None,
-    testset_id: ResourceId[int, entities.ActivitySet] | None,
-    project_id: ResourceId[int, entities.Project] | None,
-    species_id: ResourceId[int, entities.BatterySpecies] | None,
-    specimen_id: ResourceId[int, entities.Battery] | None,
-    test_id: ResourceId[int, entities.Cycling] | None,
+    testset_id: ResourceId[IdType, entities.ActivitySet] | None,
+    project_id: ResourceId[IdType, entities.Project] | None,
+    species_id: ResourceId[IdType, entities.BatterySpecies] | None,
+    specimen_id: ResourceId[IdType, entities.Battery] | None,
+    test_id: ResourceId[IdType, entities.Cycling] | None,
     evaltype: str | None,
     unique: str | None,
     unique_link: typing.Tuple[str, ...] | None,
     unique_key: typing.Tuple[str, ...] | None,
     filter: typing.Tuple[str, ...] | None,
     evalgroup: bool,
-    replace: ResourceId[bson.ObjectId, entities.group.Group] | bool | None = None,
+    replace: ResourceId[IdType, entities.group.Group] | bool | None,
+    exclude_tests: typing.Tuple[str, ...] | None,
+    before: datetime | None,
+    after: datetime | None,
+    title: str | None,
+) -> str: ...
+
+
+@typing.overload
+def group(
+    storage: Storage,
+    res_id: typing.Tuple[ResourceId[IdType, Entity], ...],
+    target_id: CollectionId | None,
+    collection_id: CollectionId | None,
+    testset_id: ResourceId[IdType, entities.ActivitySet] | None,
+    project_id: ResourceId[IdType, entities.Project] | None,
+    species_id: ResourceId[IdType, entities.BatterySpecies] | None,
+    specimen_id: ResourceId[IdType, entities.Battery] | None,
+    test_id: ResourceId[IdType, entities.Cycling] | None,
+    evaltype: str | None,
+    unique: str | None,
+    unique_link: typing.Tuple[str, ...] | None,
+    unique_key: typing.Tuple[str, ...] | None,
+    filter: typing.Tuple[str, ...] | None,
+    evalgroup: bool,
+    replace: ResourceId[IdType, entities.group.Group] | bool | None,
+    exclude_tests: typing.Tuple[str, ...] | None,
+    before: datetime | None,
+    after: datetime | None,
+    title: str | None,
+    return_str: typing.Literal[True],
+) -> str: ...
+
+
+@typing.overload
+def group(
+    storage: Storage,
+    res_id: typing.Tuple[ResourceId[IdType, Entity], ...],
+    target_id: CollectionId | None,
+    collection_id: CollectionId | None,
+    testset_id: ResourceId[IdType, entities.ActivitySet] | None,
+    project_id: ResourceId[IdType, entities.Project] | None,
+    species_id: ResourceId[IdType, entities.BatterySpecies] | None,
+    specimen_id: ResourceId[IdType, entities.Battery] | None,
+    test_id: ResourceId[IdType, entities.Cycling] | None,
+    evaltype: str | None,
+    unique: str | None,
+    unique_link: typing.Tuple[str, ...] | None,
+    unique_key: typing.Tuple[str, ...] | None,
+    filter: typing.Tuple[str, ...] | None,
+    evalgroup: bool,
+    replace: ResourceId[IdType, entities.group.Group] | bool | None,
+    exclude_tests: typing.Tuple[str, ...] | None,
+    before: datetime | None,
+    after: datetime | None,
+    title: str | None,
+    return_str: typing.Literal[False],
+) -> entities.Group: ...
+
+
+def group(
+    storage: Storage,
+    res_id: typing.Tuple[ResourceId[IdType, Entity], ...],
+    target_id: CollectionId | None,
+    collection_id: CollectionId | None,
+    testset_id: ResourceId[IdType, entities.ActivitySet] | None,
+    project_id: ResourceId[IdType, entities.Project] | None,
+    species_id: ResourceId[IdType, entities.BatterySpecies] | None,
+    specimen_id: ResourceId[IdType, entities.Battery] | None,
+    test_id: ResourceId[IdType, entities.Cycling] | None,
+    evaltype: str | None,
+    unique: str | None,
+    unique_link: typing.Tuple[str, ...] | None,
+    unique_key: typing.Tuple[str, ...] | None,
+    filter: typing.Tuple[str, ...] | None,
+    evalgroup: bool,
+    replace: ResourceId[IdType, entities.group.Group] | bool | None = None,
     exclude_tests: typing.Tuple[str, ...] | None = None,
-) -> str:
+    before: datetime | None = None,
+    after: datetime | None = None,
+    title: str | None = None,
+    return_str: bool = True,
+) -> str | entities.Group:
     if unique_link is None:
         unique_link = tuple()
     if unique_key is None:
@@ -658,31 +787,33 @@ def group(
     if evalgroup:
         evalgroup = True
         getTest = lambda r: r.test
-        makeGroup: Callable[
-            [Any], entities.group.Group
-        ] = lambda res: entities.group.EvalGroup(
-            "evalgroup",
-            collection_id=collection_id.to_str() if collection_id else None,
-            testset=testset,
-            project=project,
-            species=species,
-            specimen=specimen,
-            test=test,
-            unique=unique,
-            unique_link=unique_link,
-            unique_key=unique_key,
-            filter=filter,
-            exclude_tests=exclude_tests,
-            evals=list({id(r.testEval): r.testEval for r in res}.values()),
-            evaldata=res,
-            evaltype=evaltype,
+        makeGroup: Callable[[Any], entities.group.Group] = (
+            lambda res: entities.group.EvalGroup(
+                title or "evalgroup",
+                collection_id=collection_id.to_str() if collection_id else None,
+                testset=testset,
+                project=project,
+                species=species,
+                specimen=specimen,
+                test=test,
+                unique=unique,
+                unique_link=unique_link,
+                unique_key=unique_key,
+                filter=filter,
+                exclude_tests=exclude_tests,
+                before=before,
+                after=after,
+                evals=list({id(r.testEval): r.testEval for r in res}.values()),
+                evaldata=res,
+                evaltype=evaltype,
+            )
         )
         key_generators.append(lambda r: r.get_type())
         sortkey = "firstStep"
     else:
         getTest = lambda r: r
         makeGroup = lambda res: entities.group.TestGroup(
-            "testgroup",
+            title or "testgroup",
             collection_id=collection_id.to_str() if collection_id else None,
             testset=testset,
             project=project,
@@ -694,6 +825,8 @@ def group(
             unique_key=unique_key,
             filter=filter,
             exclude_tests=exclude_tests,
+            before=before,
+            after=after,
             tests=res,
         )
 
@@ -711,6 +844,10 @@ def group(
         res = [
             r for r in res if getTest(r).res_id_or_raise().to_str() not in exclude_tests
         ]
+    if before is not None:
+        res = [r for r in res if getTest(r).end < before]
+    if after is not None:
+        res = [r for r in res if getTest(r).start > after]
 
     if unique:
         if unique.lower() == "first":
@@ -774,30 +911,63 @@ def group(
 
     if target_id:
         if isinstance(replace, ResourceId):
-            return storage.replace(replace, res_group).to_str()
+            storage.replace(replace, res_group)
         else:
             try:
-                return storage.put(target_id, res_group).to_str()
+                storage.put(target_id, res_group)
             except DatabaseConflictException as e:
                 if replace == True:
                     replace_id = ResourceId(
                         target_id, e.conflicting_id, entities.group.Group
                     )
-                    return storage.replace(replace_id, res_group).to_str()
+                    storage.replace(replace_id, res_group)
                 else:
                     raise e
+        if return_str:
+            return res_group.res_id_or_raise().to_str()
+        else:
+            return res_group
     else:
         return pprint.pformat(Storage.res_to_dict(res_group))
 
 
+@typing.overload
 def update(
     storage: Storage,
-    resource_id: ResourceId[str, Entity],
+    resource_id: ResourceId[IdType, Entity],
     debug: bool,
-) -> str:
-    r = storage.get(resource_id)
+) -> str: ...
+
+
+@typing.overload
+def update(
+    storage: Storage,
+    resource_id: ResourceId[IdType, Entity],
+    debug: bool,
+    return_str: typing.Literal[True],
+) -> str: ...
+
+
+@typing.overload
+def update(
+    storage: Storage,
+    resource_id: ResourceId[IdType, ResourceType],
+    debug: bool,
+    return_str: typing.Literal[False],
+) -> ResourceType: ...
+
+
+def update(
+    storage: Storage,
+    resource_id: ResourceId[IdType, ResourceType],
+    debug: bool,
+    return_str: bool = True,
+) -> str | ResourceType:
+    r = storage.get_or_raise(resource_id)
+    result: typing.Any
+    replace: typing.Any = r.res_id_or_raise()
     if isinstance(r, entities.group.Group):
-        return group(
+        result = group(
             storage=storage,
             res_id=tuple[ResourceId[str, Entity]](),
             target_id=resource_id.collection,
@@ -815,16 +985,20 @@ def update(
             unique_key=r.unique_key,
             filter=r.filter,
             exclude_tests=r.exclude_tests,
+            before=r.before,
+            after=r.after,
             evalgroup=isinstance(r, entities.EvalGroup),
-            replace=r.res_id_or_raise(),
+            replace=replace,
+            return_str=False,
+            title=r.title,
         )
     elif isinstance(r, entities.plots.Plotdata):
-        result: Any = plot(
+        result = plot(
             storage=storage,
             resource_id=r.resource.res_id_or_raise(),
             plot_type=r.plottype,
             target_id=resource_id.collection,
-            replace=r.res_id_or_raise(),
+            replace=replace,
         )
         if not isinstance(result, str):
             raise RuntimeError("Unexpected return type")
@@ -834,7 +1008,7 @@ def update(
             storage=storage,
             test_id=r.test.res_id_or_raise(),
             target_id=resource_id.collection,
-            replace=r.res_id_or_raise(),
+            replace=replace,
         )
         if not isinstance(result, entities.Steplist):
             raise RuntimeError("Unexpected return type")
@@ -846,13 +1020,41 @@ def update(
             target_id=r.res_id_or_raise().collection,
             debug=debug,
             patterntype=None,
-            replace=r.res_id_or_raise(),
+            replace=replace,
         )
         if not isinstance(result, entities.TestEval):
             raise RuntimeError("Unexpected return type")
         return r.res_id_or_raise().to_str()
+    elif isinstance(r, entities.CellLife):
+        result = cell_life(
+            storage=storage,
+            specimen_id=r.battery.res_id_or_raise(),
+            target_id=r.res_id_or_raise().collection,
+            debug=debug,
+            replace=replace,
+            testmatrix_id=(
+                None if r.testmatrix is None else r.testmatrix.res_id_or_raise()
+            ),
+            return_str=False,
+        )
+    elif isinstance(r, entities.AgingData):
+        result = aging_data(
+            storage=storage,
+            celllife_id=tuple([c.res_id_or_raise() for c in r.data]),
+            target_id=r.res_id_or_raise().collection,
+            title=r.title,
+            replace=replace,
+            testmatrix_id=(
+                None if r.testmatrix is None else r.testmatrix.res_id_or_raise()
+            ),
+            return_str=False,
+        )
     else:
         raise Exception("Resource type not supported")
+    if return_str:
+        return result.res_id_or_raise().to_str()
+    else:
+        return result
 
 
 def cell_life(
@@ -860,8 +1062,10 @@ def cell_life(
     specimen_id: ResourceId[str, entities.Battery],
     target_id: CollectionId | None,
     debug: bool,
-    replace: bool = False,
-) -> str:
+    replace: ResourceId[bson.ObjectId, entities.CellLife] | bool | None = None,
+    testmatrix_id: ResourceId[str, entities.Testmatrix] | None = None,
+    return_str: bool = True,
+) -> str | entities.CellLife:
     specimen = storage.get_or_raise(specimen_id)
     testevals = storage.query(
         CollectionId(specimen_id.collection.database, "testeval"),
@@ -878,44 +1082,68 @@ def cell_life(
             ]
         },
     )
+    cap_evals = []
+    pulse_evals = []
+    cycling_evals = []
+    testinfo_evals = {}
 
-    cap_evals = [
-        e
-        for te in testevals
-        for e in te.evals
-        if isinstance(e, entities.DischargeCapacityEval)
-    ]
-    pulse_evals = [
-        e for te in testevals for e in te.evals if isinstance(e, entities.PulseEval)
-    ]
-    cycling_evals = [
-        e
-        for te in testevals
-        for e in te.evals
-        if isinstance(e, entities.UniformCyclingEval)
-    ]
-    conditions = [
-        entities.AgingConditions(
-            start=e.start,
-            end=e.end,
-            chargeCurrent=e.chargeCurrent,
-            dischargeCurrent=e.dischargeCurrent,
-            dischargePower=e.dischargePower,
-            minVoltage=e.minVoltage,
-            maxVoltage=e.maxVoltage,
-            meanVoltage=None,
-            minSoc=e.minSoc,
-            maxSoc=e.maxSoc,
-            meanSoc=(
-                None
-                if e.minSoc is None or e.maxSoc is None
-                else (e.minSoc + e.maxSoc) / 2
-            ),
-            dod=e.dod,
-            temperature=e.meanTemperature,
-        )
-        for e in cycling_evals
-    ]
+    for te in testevals:
+        for e in te.evals:
+            if isinstance(e, entities.TestinfoEval):
+                testinfo_evals[te.res_id_or_raise().to_str()] = e
+            elif isinstance(e, entities.DischargeCapacityEval):
+                cap_evals.append(e)
+            elif isinstance(e, entities.PulseEval):
+                pulse_evals.append(e)
+            elif isinstance(e, entities.UniformCyclingEval):
+                cycling_evals.append(e)
+                e.testEval = te
+
+    testmatrix = None
+    conditions = None
+    if testmatrix_id is not None:
+        testmatrix = storage.get_or_raise(testmatrix_id)
+        for entry in testmatrix.entries:
+            if entry.battery == specimen:
+                conditions = entry.conditions
+
+    if conditions is None:
+        conditions = []
+        for e in cycling_evals:
+            if e.testEval is None:
+                raise Exception("e.testEval is None")
+            chargeCRate = None
+            dischargeCRate = None
+            cap = testinfo_evals[e.testEval.res_id_or_raise().to_str()].firstCapacity
+            if e.chargeCurrent and cap:
+                chargeCRate = e.chargeCurrent / cap
+            if e.dischargeCurrent and cap:
+                dischargeCRate = e.dischargeCurrent / cap
+            conditions.append(
+                entities.AgingConditions(
+                    start=e.start,
+                    end=e.end,
+                    chargeCurrent=e.chargeCurrent,
+                    dischargeCurrent=e.dischargeCurrent,
+                    dischargePower=e.dischargePower,
+                    minVoltage=e.minVoltage,
+                    maxVoltage=e.maxVoltage,
+                    meanVoltage=None,
+                    minSoc=e.minSoc,
+                    maxSoc=e.maxSoc,
+                    meanSoc=(
+                        None
+                        if e.minSoc is None or e.maxSoc is None
+                        else (e.minSoc + e.maxSoc) / 2
+                    ),
+                    dod=e.dod,
+                    temperature=e.meanTemperature,
+                    upperPauseDuration=e.upperPauseDuration,
+                    lowerPauseDuration=e.lowerPauseDuration,
+                    chargeCRate=chargeCRate,
+                    dischargeCRate=dischargeCRate,
+                )
+            )
     conditions.sort(key=lambda x: x.start)
     conditions_combined = []
 
@@ -924,10 +1152,46 @@ def cell_life(
         if prev is None:
             prev = c
         else:
-            if is_similar(
-                prev, c, rel_tol=0.02, abs_tol=0.01, exclude=["start", "end"]
+            combine = True
+            combined = combine_conditions(
+                prev,
+                c,
+                tolerances={
+                    "dod": (0.02, 3),
+                    "temperature": (0.02, 3),
+                    "maxSoc": (0.02, 3),
+                    "minSoc": (0.02, 3),
+                },
+            )
+            if combined.chargeCurrent is None and combined.chargeCRate is None:
+                combine = False
+                print("1")
+            if (
+                combined.dischargeCurrent is None
+                and combined.dischargeCRate is None
+                and combined.dischargePower is None
             ):
-                prev.end = c.end
+                combine = False
+                print("2")
+            if (
+                combined.minVoltage is None
+                and combined.minSoc is None
+                # and combined.dod is None
+            ):
+                combine = False
+                print("3")
+            if combined.maxVoltage is None and combined.maxSoc is None:
+                combine = False
+                print("4")
+            if (
+                combined.temperature is None
+                or combined.upperPauseDuration is None
+                or combined.lowerPauseDuration is None
+            ):
+                print("5")
+                combine = False
+            if combine:
+                prev = combined
             else:
                 conditions_combined.append(prev)
                 prev = c
@@ -942,17 +1206,27 @@ def cell_life(
         cap_evals,
         pulse_evals,
         testevals,
+        testmatrix=testmatrix,
     )
 
     if target_id:
-        try:
-            return storage.put(target_id, result).to_str()
-        except DatabaseConflictException as e:
-            if replace:
-                replace_id = ResourceId(target_id, e.conflicting_id, entities.CellLife)
-                return storage.replace(replace_id, result).to_str()
-            else:
-                raise e
+        if isinstance(replace, ResourceId):
+            storage.replace(replace, result)
+        else:
+            try:
+                storage.put(target_id, result)
+            except DatabaseConflictException as e:
+                if replace:
+                    replace_id = ResourceId(
+                        target_id, e.conflicting_id, entities.CellLife
+                    )
+                    storage.replace(replace_id, result)
+                else:
+                    raise e
+        if return_str:
+            return result.res_id_or_raise().to_str()
+        else:
+            return result
     else:
         return pprint.pformat(Storage.res_to_dict(result))
 
@@ -962,23 +1236,42 @@ def aging_data(
     celllife_id: typing.Tuple[ResourceId[str, entities.CellLife], ...],
     target_id: CollectionId | None,
     title: str,
-    replace: bool = False,
-) -> str:
+    replace: ResourceId[bson.ObjectId, entities.AgingData] | bool | None = None,
+    testmatrix_id: ResourceId[str, entities.Testmatrix] | None = None,
+    return_str: bool = True,
+) -> str | entities.AgingData:
     celldata = [storage.get_or_raise(cid) for cid in celllife_id]
+    testmatrix = None
+    if testmatrix_id is not None:
+        testmatrix = storage.get_or_raise(testmatrix_id)
+        for cd in celldata:
+            for entry in testmatrix.entries:
+                # TODO: implement better comparisons for entities
+                if cd.battery.id == entry.battery.id:
+                    cd.conditions = entry.conditions
 
-    agingdata = entities.AgingData(title, celldata)
+    agingdata = entities.AgingData(title, celldata, testmatrix=testmatrix)
     plotdata = plot_aging_data(storage, agingdata)
     agingdata.plotdata = plotdata.data
 
     if target_id:
-        try:
-            return storage.put(target_id, agingdata).to_str()
-        except DatabaseConflictException as e:
-            if replace:
-                replace_id = ResourceId(target_id, e.conflicting_id, entities.AgingData)
-                return storage.replace(replace_id, agingdata).to_str()
-            else:
-                raise e
+        if isinstance(replace, ResourceId):
+            storage.replace(replace, agingdata)
+        else:
+            try:
+                storage.put(target_id, agingdata)
+            except DatabaseConflictException as e:
+                if replace:
+                    replace_id = ResourceId(
+                        target_id, e.conflicting_id, entities.AgingData
+                    )
+                    storage.replace(replace_id, agingdata)
+                else:
+                    raise e
+        if return_str:
+            return agingdata.res_id_or_raise().to_str()
+        else:
+            return agingdata
     else:
         return pprint.pformat(Storage.res_to_dict(agingdata))
 

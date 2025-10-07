@@ -1,3 +1,4 @@
+import datetime
 import typing
 from dataclasses import dataclass
 from typing import Tuple
@@ -156,4 +157,11 @@ class UniformCycling(EvalPattern):
             minTemperature=minTemperature,
             maxTemperature=maxTemperature,
             meanTemperature=meanTemperature,
+            matchStart=steps[0].start,
+            matchEnd=steps[-1].end,
+            starttime=(
+                test.start + datetime.timedelta(seconds=steps[0].start)
+                if test.start
+                else None
+            ),
         )

@@ -12,7 +12,7 @@ import bdat.database.storage.entity
 import bdat.entities as entities
 import bdat.functions as functions
 from bdat import get_version
-from bdat.database.storage.entity import EntityPlaceholder
+from bdat.database.storage.entity import Entity, EntityPlaceholder
 from bdat.database.storage.resource_id import CollectionId, ResourceId
 from bdat.database.storage.resource_param import CollectionIdParam, ResourceIdParam
 from bdat.database.storage.storage import Storage
@@ -27,8 +27,18 @@ from bdat.tools.runner import run_parallel
 
 @click.group()
 @click.option("-c", "--config", type=click.File())
+@click.option(
+    "debug",
+    "--debug",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Print debug information and raise exceptions",
+)
 @click.pass_context
-def main(ctx, config):
+def main(ctx, config, debug):
+    if debug:
+        bdat.BDAT_DEBUG = True
     cfg = None
     if config:
         cfg = json.load(config)
@@ -42,7 +52,7 @@ def main(ctx, config):
                     cfg = json.load(f)
                     break
     if cfg:
-        ctx.obj = Storage(cfg["databases"], "bdat.entities")
+        ctx.obj = Storage(cfg["databases"], "bdat.entities", rootclass=Entity)
     else:
         raise Exception("No config file found")
 
@@ -297,7 +307,7 @@ def steps(
             "storage": obj,
             "target_id": target_id,
             "replace": replace,
-            "return_str": True,
+            "return_str": False,
         },
         processes=parallel,
     ):
@@ -375,7 +385,7 @@ def patterns(
             "patterntype": patterntype,
             "replace": replace,
             "ignore_test": ignore_test,
-            "return_str": True,
+            "return_str": False,
         },
         processes=parallel,
     ):
@@ -489,16 +499,23 @@ def battery_patterns(
 @click.argument(
     "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
 )
+@click.option(
+    "--attr", type=str, help="attribute to print instead of the whole resource"
+)
 @click.pass_obj
 def show(
     obj: Storage,
     resource_id: typing.Tuple[ResourceId[str, entities.Cycling]],
+    attr: str | None,
 ):
     for r in args_from_stdin(
         ResourceIdParam(bdat.database.storage.entity.Entity), resource_id
     ):
         r = r.guess_id_type()
-        pprint.pprint(obj.get_as_doc(r))
+        if attr:
+            pprint.pprint(getattr(obj.get_or_raise(r), attr))
+        else:
+            pprint.pprint(obj.get_as_doc(r))
 
 
 @main.command("copy", help="print resource to other collection")
@@ -651,7 +668,7 @@ def plot(
                     root, ext = os.path.splitext(to_parquet)
                     for k, v in result.data.items():
                         if isinstance(v, pd.DataFrame):
-                            v.to_parquet(f"{root}_{k}{ext}")
+                            v.to_parquet(f"{root}_{k}{ext}")  # type: ignore
                 pprint.pprint(Storage.res_to_dict(result))
             n += 1
     print_info(f"plot: {n} entities")
@@ -769,6 +786,9 @@ def download(
     multiple=True,
 )
 @click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.option("before", "--before", type=click.DateTime(), default=None)
+@click.option("after", "--after", type=click.DateTime(), default=None)
+@click.option("title", "--title", type=str, required=False)
 @click.pass_obj
 def evalgroup(
     obj: Storage,
@@ -787,6 +807,9 @@ def evalgroup(
     filter: typing.Tuple[str],
     replace: bool,
     exclude_tests: typing.Tuple[str],
+    before: datetime | None,
+    after: datetime | None,
+    title: str | None,
 ):
     result = functions.group(
         obj,
@@ -806,6 +829,9 @@ def evalgroup(
         True,
         replace,
         exclude_tests,
+        before,
+        after,
+        title,
     )
     print(result)
 
@@ -852,6 +878,9 @@ def evalgroup(
     multiple=True,
 )
 @click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.option("before", "--before", type=click.DateTime(), default=None)
+@click.option("after", "--after", type=click.DateTime(), default=None)
+@click.option("title", "--title", type=str, required=False)
 @click.pass_obj
 def testgroup(
     obj: Storage,
@@ -870,6 +899,9 @@ def testgroup(
     filter: typing.Tuple[str],
     replace: bool,
     exclude_tests: typing.Tuple[str],
+    before: datetime | None,
+    after: datetime | None,
+    title: str | None,
 ):
     result = functions.group(
         obj,
@@ -889,6 +921,9 @@ def testgroup(
         False,
         replace,
         exclude_tests,
+        before,
+        after,
+        title,
     )
     print(result)
 
@@ -905,6 +940,7 @@ def testgroup(
 @click.option("sort", "--sort", type=str)
 @click.option("dataset", "--dataset", type=str, required=True)
 @click.option("filter", "--filter", type=str, multiple=True)
+@click.option("format", "--format", type=str, default="csv")
 @click.pass_obj
 def download_plotdata(
     obj: Storage,
@@ -914,6 +950,7 @@ def download_plotdata(
     sort: str | None,
     dataset: str,
     filter: typing.Tuple[str] | None,
+    format: str,
 ):
     n = 0
     for p in args_from_stdin(ResourceIdParam(entities.plots.Plotdata), plot_id):
@@ -941,10 +978,12 @@ def download_plotdata(
                 out: str | typing.TextIO = sys.stdout
             else:
                 out = filename_pattern.format(id=p.to_str())
-            df.to_csv(
-                out,
-                index=False,
-            )
+            if format.lower() == "csv":
+                df.to_csv(out, index=False)
+            elif format.lower() == "parquet":
+                df.to_parquet(out)  # type: ignore
+            else:
+                raise Exception("Unknown file format")
             n += 1
     print_info(f"download-plotdata: {n} files")
 
@@ -1019,6 +1058,7 @@ def import_fittingdata(
 @click.option("--cell-column", "cell_column", type=str, required=True)
 @click.option("--start-column", "start_column", type=str, required=True)
 @click.option("--end-column", "end_column", type=str, required=True)
+@click.option("--info-column", "info_column", type=str, required=False)
 @click.option("--time-format", "time_format", type=str)
 @click.option("target", "-t", "--target", type=CollectionIdParam(), required=True)
 @click.argument("metadata", type=click.File())
@@ -1035,6 +1075,7 @@ def import_tests(
     cell_column: str,
     start_column: str,
     end_column: str,
+    info_column: str | None,
     time_format: str,
     target: CollectionId,
 ):
@@ -1051,6 +1092,7 @@ def import_tests(
         cell_column,
         start_column,
         end_column,
+        info_column,
         time_format,
         target,
     ):
@@ -1084,6 +1126,7 @@ def import_tests(
     default=False,
     help="Replace existing documents",
 )
+@click.option("--testmatrix", type=ResourceIdParam(entities.Testmatrix))
 @click.pass_obj
 def cell_life(
     obj: Storage,
@@ -1092,13 +1135,20 @@ def cell_life(
     debug: bool,
     parallel: int,
     replace: bool,
+    testmatrix: ResourceId[str, entities.Testmatrix] | None,
 ):
     n = 0
     for result in run_parallel(
         functions.cell_life,
         args_from_stdin(ResourceIdParam(entities.Battery), specimen_id),
         "specimen_id",
-        {"storage": obj, "target_id": target_id, "replace": replace, "debug": debug},
+        {
+            "storage": obj,
+            "target_id": target_id,
+            "replace": replace,
+            "debug": debug,
+            "testmatrix_id": testmatrix,
+        },
         processes=parallel,
     ):
         if isinstance(result, ParallelWorkerException):
@@ -1128,6 +1178,7 @@ def cell_life(
     default=False,
     help="Replace existing documents",
 )
+@click.option("--testmatrix", type=ResourceIdParam(entities.Testmatrix))
 @click.pass_obj
 def aging_data(
     obj: Storage,
@@ -1135,6 +1186,7 @@ def aging_data(
     target_id: CollectionId,
     title: str,
     replace: bool,
+    testmatrix: ResourceId[str, entities.Testmatrix],
 ):
     result = functions.aging_data(
         obj,
@@ -1142,6 +1194,7 @@ def aging_data(
         target_id,
         title,
         replace,
+        testmatrix,
     )
     if isinstance(result, ParallelWorkerException):
         print(f"{result.item.to_str()}: {repr(result.cause)}", file=sys.stderr)
@@ -1156,13 +1209,27 @@ def aging_data(
 @main.command("query", help="query records")
 @click.argument("query", type=str)
 @click.option("-c", "--collection", type=CollectionIdParam(), required=True)
+@click.option("json_output", "--json", is_flag=True, default=False)
+@click.option("id_only", "--id-only", is_flag=True, default=False)
 @click.pass_obj
-def query(obj: Storage, collection: CollectionId, query: str):
-    n = 0
-    for res_id in obj.query_ids(collection, int, entities.Entity, json.loads(query)):
-        print(res_id.to_str())
-        n += 1
-    print_info(f"query: {n} entities")
+def query(
+    obj: Storage, collection: CollectionId, query: str, json_output: bool, id_only: bool
+):
+    res_ids: typing.List[typing.Any] = obj.query_ids(
+        collection, int, entities.Entity, json.loads(query)
+    )
+    if id_only:
+        if json_output:
+            res_ids = [r.id for r in res_ids]
+        else:
+            res_ids = [str(r.id) for r in res_ids]
+    else:
+        res_ids = [r.to_str() for r in res_ids]
+    if json_output:
+        print(json.dumps(res_ids, indent=2))
+    else:
+        print("\n".join(res_ids))
+    print_info(f"query: {len(res_ids)} entities")
 
 
 @main.command(
@@ -1181,3 +1248,102 @@ def diff_query(obj: Storage, collection: CollectionId, query_a: str, query_b: st
             print(res_id.to_str())
             n += 1
     print_info(f"diff-query: {n} entities")
+
+
+@main.command("import-testmatrix", help="import testmatrix from excel file")
+@click.argument("file", type=click.File("rb"))
+@click.option("--title", type=str, required=True)
+@click.option("--project", "-p", type=ResourceIdParam(entities.Project), required=True)
+@click.option("--battery", "-b", type=str, required=True)
+@click.option("charge_current", "--charge-current", type=str)
+@click.option("discharge_current", "--discharge-current", type=str)
+@click.option("discharge_power", "--discharge-power", type=str)
+@click.option("min_voltage", "--min-voltage", type=str)
+@click.option("max_voltage", "--max-voltage", type=str)
+@click.option("mean_voltage", "--mean-voltage", type=str)
+@click.option("min_soc", "--min-soc", type=str)
+@click.option("max_soc", "--max-soc", type=str)
+@click.option("mean_soc", "--mean-soc", type=str)
+@click.option("--dod", type=str)
+@click.option("--temperature", type=str)
+@click.option("upper_pause_duration", "--upper-pause-duration", type=str)
+@click.option("lower_pause_duration", "--lower-pause-duration", type=str)
+@click.option("charge_cRate", "--charge-crate", type=str)
+@click.option("discharge_cRate", "--discharge-crate", type=str)
+@click.option("--sheet", type=str)
+@click.option("target", "-t", "--target", type=CollectionIdParam(), required=True)
+@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.pass_obj
+def import_testmatrix(
+    obj: Storage,
+    file: typing.BinaryIO,
+    title: str,
+    project: ResourceId[int, entities.Project],
+    battery: str,
+    charge_current: str | None,
+    discharge_current: str | None,
+    discharge_power: str | None,
+    min_voltage: str | None,
+    max_voltage: str | None,
+    mean_voltage: str | None,
+    min_soc: str | None,
+    max_soc: str | None,
+    mean_soc: str | None,
+    dod: str | None,
+    temperature: str | None,
+    upper_pause_duration: str | None,
+    lower_pause_duration: str | None,
+    charge_cRate: str | None,
+    discharge_cRate: str | None,
+    sheet: str | None,
+    target: CollectionId,
+    replace: bool,
+):
+    data = pd.read_excel(file, sheet_name=sheet)
+    if not isinstance(data, pd.DataFrame):
+        raise Exception("Unexpected type for dataframe")
+    p = obj.get_or_raise(project)
+    batteries = {
+        b.title: b
+        for b in obj.query(
+            CollectionId(target.database, "battery"),
+            entities.Battery,
+            {"outgoing": [{"name": "project", "to": {"id": project.id}}]},
+        )
+    }
+    entries: typing.List[entities.TestmatrixEntry] = []
+    for _, row in data.iterrows():
+        b = batteries[row[battery]]
+        entries.append(
+            entities.TestmatrixEntry(
+                b,
+                [
+                    entities.AgingConditions(
+                        start=0,
+                        end=0,
+                        chargeCurrent=__entry_or_none(row, charge_current),
+                        dischargeCurrent=__entry_or_none(row, discharge_current),
+                        dischargePower=__entry_or_none(row, discharge_power),
+                        minVoltage=__entry_or_none(row, min_voltage),
+                        maxVoltage=__entry_or_none(row, max_voltage),
+                        meanVoltage=__entry_or_none(row, mean_voltage),
+                        minSoc=__entry_or_none(row, min_soc),
+                        maxSoc=__entry_or_none(row, max_soc),
+                        meanSoc=__entry_or_none(row, mean_soc),
+                        dod=__entry_or_none(row, dod),
+                        temperature=__entry_or_none(row, temperature),
+                        upperPauseDuration=__entry_or_none(row, upper_pause_duration),
+                        lowerPauseDuration=__entry_or_none(row, lower_pause_duration),
+                        chargeCRate=__entry_or_none(row, charge_cRate),
+                        dischargeCRate=__entry_or_none(row, discharge_cRate),
+                    )
+                ],
+            ),
+        )
+    matrix = entities.Testmatrix(title=title, project=p, entries=entries)
+    obj.put(target, matrix)
+    print(matrix.res_id_or_raise().to_str())
+
+
+def __entry_or_none(row, column):
+    return None if column is None else row[column]

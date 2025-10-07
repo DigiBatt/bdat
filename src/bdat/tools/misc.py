@@ -1,4 +1,5 @@
 import math
+import re
 from typing import Any, Callable
 
 import numpy as np
@@ -48,42 +49,64 @@ def make_round_function(
     raise Exception("Invalid key for rounding")
 
 
-def is_similar(a, b, rel_tol, abs_tol, *, exclude):
+def is_similar_obj(a, b, rel_tol, abs_tol, *, exclude):
     for key in a.__dict__:
         if key in exclude:
             continue
         valueA = getattr(a, key)
         valueB = getattr(b, key)
-        if valueA is None and valueB is None:
-            return True
-        elif isinstance(valueA, float) and isinstance(valueB, float):
-            if not math.isclose(
-                getattr(a, key), getattr(b, key), rel_tol=rel_tol, abs_tol=abs_tol
-            ):
-                return False
-        else:
+        if not is_similar(valueA, valueB, rel_tol, abs_tol):
             return False
     return True
 
 
+def is_similar(a, b, rel_tol, abs_tol):
+    if a is None and b is None:
+        return True
+    elif isinstance(a, float) and isinstance(b, float):
+        return math.isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol)
+    else:
+        return False
+
+
 def make_filter(key_generator, f):
     filterspec = f.split(":")[1]
+    regex = []
     values = []
     ranges = []
     for v in filterspec.split(","):
-        if ".." in v:
+        if v.startswith("/") and v.endswith("/"):
+            regex.append(re.compile(v[1:-1]))
+        elif ".." in v:
             cutoffs = v.split("..")
-            ranges.append((float(cutoffs[0]), float(cutoffs[1])))
+            try:
+                ranges.append((float(cutoffs[0]), float(cutoffs[1])))
+            except ValueError:
+                ranges.append((cutoffs[0], cutoffs[1]))
         else:
-            values.append(float(v))
+            try:
+                values.append(float(v))
+            except ValueError:
+                values.append(v)
 
     def filter(res):
         try:
             key_value = key_generator(res)
         except TypeError as e:
             print(e)
-        return any([math.isclose(key_value, v, rel_tol=1e-4) for v in values]) or any(
-            [key_value >= r[0] and key_value <= r[1] for r in ranges]
+        return (
+            any(
+                [
+                    (
+                        math.isclose(key_value, v, rel_tol=1e-4)
+                        if isinstance(v, float)
+                        else key_value == v
+                    )
+                    for v in values
+                ]
+            )
+            or any([key_value >= r[0] and key_value <= r[1] for r in ranges])
+            or any([r.match(key_value) for r in regex])
         )
 
     return filter

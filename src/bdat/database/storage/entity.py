@@ -5,7 +5,7 @@ from abc import ABC
 from dataclasses import Field, dataclass, field
 from enum import Enum
 
-import parse
+import parse  # type: ignore
 from typing_extensions import Self
 
 import bdat.database.storage.resource_id as abc_resource_id
@@ -186,18 +186,21 @@ class Filetype(Enum):
     JSON = 0
     PARQUET = 1
     PICKLE = 2
+    CSV = 3
 
 
 EXTENSIONS = {
     Filetype.JSON: "json",
     Filetype.PARQUET: "parquet",
     Filetype.PICKLE: "pickle",
+    Filetype.CSV: "csv",
 }
 
 MIMETYPES = {
     Filetype.JSON: "application/json",
     Filetype.PARQUET: "application/octet-stream",
     Filetype.PICKLE: "application/octet-stream",
+    Filetype.CSV: "application/csv",
 }
 
 

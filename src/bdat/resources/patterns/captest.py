@@ -1,3 +1,4 @@
+import datetime
 import typing
 from dataclasses import dataclass
 from typing import Tuple
@@ -22,8 +23,12 @@ class Captest(EvalPattern):
     cutoffCurrent: float | Tuple[float, float] | None = None
     relaxationTime: float | Tuple[float, float] | None = None
     ccDuration: float | Tuple[float, float] | None = None
+    ccRequired: bool = True
+    cvRequired: bool = False
 
     def pattern(self, species: BatterySpecies) -> SteplistPattern:
+        print(f"ccRequired: {self.ccRequired}, cvRequired: {self.cvRequired}")
+
         if species.capacity is None:
             raise Exception("Battery species has no defined capacity")
         eocVoltage = make_range(
@@ -64,9 +69,9 @@ class Captest(EvalPattern):
 
         return Series(
             [
-                self.chargeStep,
-                Optional(self.cvStep),
-                self.pauseStep,
+                self.chargeStep if self.ccRequired else Optional(self.chargeStep),
+                self.cvStep if self.cvRequired else Optional(self.cvStep),
+                Optional(self.pauseStep),
                 self.dischargeStep,
             ]
         )
@@ -78,15 +83,26 @@ class Captest(EvalPattern):
         steps: typing.List[Step],
         _: CyclingData | None,
     ) -> DischargeCapacityEval:
-        chaStep = next(match.get_matches(self.chargeStep)).steps[0].asCC()
+        chaMatch = next(match.get_matches(self.chargeStep), None)
+        chaStep = None if chaMatch is None else chaMatch.steps[0].asCC()
         cvMatch = next(match.get_matches(self.cvStep), None)
         cvStep = None if cvMatch is None else cvMatch.steps[0].asCV()
-        pauseStep = next(match.get_matches(self.pauseStep)).steps[0].asPause()
+        pauseMatch = next(match.get_matches(self.pauseStep), None)
+        pauseStep = None if pauseMatch is None else pauseMatch.steps[0].asPause()
         dchStep = next(match.get_matches(self.dischargeStep)).steps[0].asCC()
 
         capacity = steps[-1].charge
         dischargeCurrent = steps[-1].asCC().current
         dischargeDuration = steps[-1].duration
+
+        eocVoltage: float | None = None
+        matchStart = dchStep.start
+        if chaStep is not None:
+            eocVoltage = chaStep.voltageEnd
+            matchStart = chaStep.start
+        elif cvStep is not None:
+            eocVoltage = cvStep.voltage
+            matchStart = cvStep.start
 
         # TODO: remove this once all current factors are corrected
         # while abs(capacity) < abs(0.5 * dischargeCurrent * dischargeDuration / 3600):
@@ -99,17 +115,24 @@ class Captest(EvalPattern):
             end=dchStep.end,
             firstStep=dchStep.stepId,
             lastStep=dchStep.stepId,
-            chargeCurrent=chaStep.current,
-            eocVoltage=chaStep.voltageEnd,
-            ccDuration=chaStep.duration,
+            chargeCurrent=None if chaStep is None else chaStep.current,
+            eocVoltage=eocVoltage,
+            ccDuration=None if chaStep is None else chaStep.duration,
             cvDuration=None if cvStep is None else cvStep.duration,
             cutoffCurrent=None if cvStep is None else cvStep.currentEnd,
-            pauseDuration=pauseStep.duration,
-            relaxedVoltage=pauseStep.voltageEnd,
+            pauseDuration=None if pauseStep is None else pauseStep.duration,
+            relaxedVoltage=None if pauseStep is None else pauseStep.voltageEnd,
             dischargeCurrent=dischargeCurrent,
             dischargeDuration=dischargeDuration,
             capacity=capacity,
             eodVoltage=dchStep.voltageEnd,
             age=dchStep.ageStart,
             chargeThroughput=dchStep.dischargeStart,
+            matchStart=matchStart,
+            matchEnd=dchStep.end,
+            starttime=(
+                test.start + datetime.timedelta(seconds=dchStep.start)
+                if test.start
+                else None
+            ),
         )

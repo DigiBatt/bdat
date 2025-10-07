@@ -15,6 +15,10 @@ import numpy as np
 import pandas as pd
 
 import bdat.database
+from bdat.database.exceptions.missing_attribute_exception import (
+    MissingAttributeException,
+)
+from bdat.database.exceptions.unexpected_value_exception import UnexpectedValueException
 from bdat.database.kadi.database import KadiDatabase
 from bdat.database.storage.entity import (
     _ENTITY_FILES,
@@ -54,13 +58,15 @@ class Storage:
     dbconfig: Dict[DatabaseId, DBConfig]
     classpath: str | None
     cache: Dict[str, Entity]
+    rootclass: typing.Type
 
-    def __init__(self, config, classpath=None):
+    def __init__(self, config, classpath=None, rootclass=Entity):
         self.config = config
         self.databases = {}
         self.dbconfig = {}
         self.classpath = classpath
         self.cache = {}
+        self.rootclass = rootclass
 
     def get(self, resource_id: ResourceId[IdType, ResourceType]) -> ResourceType | None:
         res_id_str = resource_id.to_str()
@@ -175,7 +181,8 @@ class Storage:
                 continue
 
             if baseType == datetime:
-                doc[attrName] = datetime.fromisoformat(doc[attrName])
+                if isinstance(doc[attrName], str):
+                    doc[attrName] = datetime.fromisoformat(doc[attrName])
 
         init_args = inspect.signature(resource_type.__init__).parameters.keys()
         # init_args = inspect.getargs(resource_type.__init__)
@@ -197,8 +204,7 @@ class Storage:
         self,
         resource_id: ResourceId[IdType, ResourceType],
         file: FileSpec | str | None = None,
-    ) -> typing.IO | None:
-        ...
+    ) -> typing.IO | None: ...
 
     @typing.overload
     def get_file(
@@ -206,8 +212,7 @@ class Storage:
         resource_id: ResourceId[IdType, ResourceType],
         file: FileSpec | str | None,
         return_name: typing.Literal[False],
-    ) -> typing.IO | None:
-        ...
+    ) -> typing.IO | None: ...
 
     @typing.overload
     def get_file(
@@ -215,8 +220,7 @@ class Storage:
         resource_id: ResourceId[IdType, ResourceType],
         file: FileSpec | str | None,
         return_name: typing.Literal[True],
-    ) -> typing.Tuple[typing.IO | None, str | None]:
-        ...
+    ) -> typing.Tuple[typing.IO | None, str | None]: ...
 
     def get_file(
         self,
@@ -254,9 +258,11 @@ class Storage:
         if not (buffer and file):
             raise Exception("Error getting file")
         f = self.__buffer_to_file(file, buffer)
+        if isinstance(f, pd.DataFrame):
+            return f
         r = []
         for item in f:
-            itemtype = self.__find_real_type(item, Entity)
+            itemtype = self.__find_real_type(item, self.rootclass)
             item_res_id = ResourceId(resource_id.collection, resource_id.id, itemtype)
             self.__resolve_refs(item, item_res_id)
             r.append(self.__doc_to_class(item, itemtype, None))
@@ -292,7 +298,7 @@ class Storage:
     ) -> List[ResourceType]:
         if collection_id is None and filter is not None:
             for v in filter.values():
-                filter_res_id = ResourceId.from_str(v, Entity)
+                filter_res_id = ResourceId.from_str(v, self.rootclass)
                 if not filter_res_id.collection.database in self.databases:
                     self.__open_database(filter_res_id.collection.database)
                 if isinstance(
@@ -329,7 +335,7 @@ class Storage:
     ) -> List[ResourceId[IdType, ResourceType]]:
         if collection_id is None and filter is not None:
             for v in filter.values():
-                res_id = ResourceId.from_str(v, Entity)
+                res_id = ResourceId.from_str(v, self.rootclass)
                 if not res_id.collection.database in self.databases:
                     self.__open_database(res_id.collection.database)
                 if isinstance(self.databases[res_id.collection.database], KadiDatabase):
@@ -413,7 +419,7 @@ class Storage:
         doc_ids: List[IdType] = self.databases[collection_id.database][
             collection_id.name
         ].find_ids(filter)
-        return [ResourceId(collection_id, d, Entity) for d in doc_ids]
+        return [ResourceId(collection_id, d, self.rootclass) for d in doc_ids]
 
     def delete(self, res_id: ResourceId[IdType, ResourceType]):
         if not res_id.collection.database in self.databases:
@@ -482,7 +488,7 @@ class Storage:
                     res[attrName] = []
                 elif not isinstance(res[attrName], list):
                     res[attrName] = [res[attrName]]
-                if issubclass(attrType, Entity):
+                if issubclass(attrType, self.rootclass):
                     for i in range(len(res[attrName])):
                         res[attrName][i] = self.__get_ref(
                             res_id, res[attrName][i], attrType, False
@@ -493,17 +499,17 @@ class Storage:
                 if typeArgs[1] == types.NoneType:
                     attrType = typeArgs[0]
                     allowNone = True
-            if inspect.isclass(attrType) and issubclass(attrType, Entity):
+            if inspect.isclass(attrType) and issubclass(attrType, self.rootclass):
                 if allowNone:
                     attrValue = res.get(attrName, None)
                 else:
                     try:
                         attrValue = res[attrName]
                     except KeyError as e:
-                        raise Exception(
-                            f"Missing attribute {attrName} in {res_id.to_str()} ({res_id.resourceType.__name__})"
+                        raise MissingAttributeException(
+                            res_id, res_id.resourceType.__name__, attrName
                         )
-                if attrValue == None:
+                if attrValue is None:
                     res[attrName] = None
                 else:
                     res[attrName] = self.__get_ref(
@@ -517,13 +523,15 @@ class Storage:
         attrType: Type,
         allowNone: bool,
     ):
-        if attrValue == None and allowNone:
+        if attrValue is None and allowNone:
             return None
-        if isinstance(attrValue, dict):
+        if isinstance(attrValue, ResourceId):
+            ref = attrValue
+        elif isinstance(attrValue, dict):
             attrType = self.__find_real_type(attrValue, attrType)
             return self.__doc_to_class(attrValue, attrType)
         elif isinstance(attrValue, (int, bson.ObjectId)):
-            ref: ResourceId = ResourceId(
+            ref = ResourceId(
                 CollectionId(res_id.collection.database, attrType.__name__.lower()),
                 attrValue,
                 attrType,
@@ -534,9 +542,7 @@ class Storage:
         elif isinstance(attrValue, (FilePlaceholder, ExplodePlaceholder)):
             return attrValue
         else:
-            raise Exception(
-                f"Unexpected value {attrValue} in resource {res_id.to_str()}"
-            )
+            raise UnexpectedValueException(res_id, attrValue)
         # return self.get(ref)
         return EntityPlaceholder(self, ref)
 
@@ -545,17 +551,10 @@ class Storage:
             raise Exception(f"Unknown database '{database_id.name}'")
         dbconfig = self.config[database_id.name]
         dbc = DBConfig(dbconfig["type"])
-        if dbc.db_type == "mongo":
-            if "id" in dbconfig:
-                if "field" in dbconfig["id"]:
-                    dbc.id_field = dbconfig["id"]["field"]
-                if "type" in dbconfig["id"]:
-                    dbc.id_type = dbconfig["id"]["type"]
-            client = bdat.database.MongoClient(dbc, dbconfig["uri"])
-            self.databases[database_id] = client[dbconfig["database"]]
-            self.dbconfig[database_id] = dbc
-        elif dbconfig["type"] == "kadi":
-            db = KadiDatabase(dbconfig["url"], dbconfig["token"])
+        if dbconfig["type"] == "kadi":
+            db = KadiDatabase(
+                dbconfig["url"], dbconfig["token"], dbconfig.get("cachedir", None)
+            )
             self.databases[database_id] = db
             self.dbconfig[database_id] = dbc
         else:
@@ -590,8 +589,8 @@ class Storage:
         return d
 
     @staticmethod
-    def __insert_refs(d: Any) -> Any:
-        if isinstance(d, Entity) and not isinstance(d, Embedded):
+    def __insert_refs(d: Any, rootclass: typing.Type = Entity) -> Any:
+        if isinstance(d, rootclass) and not isinstance(d, Embedded):
             # TODO: If nested entity has no id it should probably be pushed to database automatically
             return d.res_id_or_raise()
         elif isinstance(d, EntityPlaceholder):
@@ -612,7 +611,7 @@ class Storage:
                     np.int64,
                 ),
             )
-            or d == None
+            or d is None
         ):
             return d
         elif isinstance(d, (list, tuple)):
@@ -697,6 +696,11 @@ class Storage:
             case Filetype.PICKLE:
                 buffer = io.BytesIO()
                 pickle.dump(value, buffer)
+            case Filetype.CSV:
+                if not isinstance(value, pd.DataFrame):
+                    raise Exception("Content of CSV file must be a dataframe")
+                buffer = io.BytesIO()
+                value.to_csv(index=False)
             case _:
                 raise Exception("Unknown file type")
 
@@ -713,5 +717,14 @@ class Storage:
             return pd.read_parquet(buffer)
         elif ext == EXTENSIONS[Filetype.PICKLE]:
             return pickle.load(buffer)
+        elif ext == EXTENSIONS[Filetype.CSV]:
+            return pd.read_csv(buffer)
         else:
             raise Exception("Unknown file type")
+
+    def get_link(self, resource_id: ResourceId[IdType, ResourceType]) -> str:
+        if not resource_id.collection.database in self.databases:
+            self.__open_database(resource_id.collection.database)
+        return self.databases[resource_id.collection.database][
+            resource_id.collection.name
+        ].get_link(resource_id.id)

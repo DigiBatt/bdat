@@ -4,6 +4,8 @@ import typing
 
 import click
 
+import bdat
+
 
 def args_from_stdin(arg_type: typing.Type | click.ParamType, cli_args: tuple):
     for arg in cli_args:
@@ -19,3 +21,9 @@ def args_from_stdin(arg_type: typing.Type | click.ParamType, cli_args: tuple):
 def print_info(text):
     with open(os.ttyname(2), "w") as f:
         print(text, file=f)
+
+
+def print_debug(text):
+    if bdat.BDAT_DEBUG:
+        with open(os.ttyname(2), "w") as f:
+            print(text, file=f)

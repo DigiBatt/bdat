@@ -16,11 +16,13 @@ def plot_aging_data(storage: Storage, aging_data: Entity) -> Plotdata:
 
     for cell_life in aging_data.data:
         if len(cell_life.conditions) == 0:
+            print(f"No aging conditions for cell {cell_life.battery.title}")
             continue
         if len(cell_life.conditions) > 1:
-            raise Exception(
+            print(
                 f"Unknown or non-constant aging conditions for cell {cell_life.battery.title}"
             )
+            continue
         conditions = cell_life.conditions[0]
         if conditions.dod == 0:
             for cap in cell_life.capacity:

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="/static/vega/vega@5.js"></script>
+    <script src="/static/vega/vega-lite@5.17.0.js"></script>
+    <script src="/static/vega/vega-embed@6.js"></script>
+
+    <title>{{ testeval.title }}</title>
+</head>
+
+<body>
+    <h1>{{ testeval.title }}</h1>
+    {% for div_id, chart_script in plots.items() %}
+    <div id="{{ div_id }}"></div>
+    <script src="{{ chart_script }}"></script>
+    {% endfor %}
+</body>
+
+</html>

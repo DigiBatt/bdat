@@ -15,6 +15,13 @@ from bdat.steps.steplist_pattern import Match, Repeat, SteplistPattern
 
 @dataclass
 class Testinfo(EvalPattern):
+    skipAhCounters: bool = False
+    chargeAh: float | None = None
+    dischargeAh: float | None = None
+    totalAh: float | None = None
+    lastCharge: float | None = None
+    lastDischarge: float | None = None
+
     def pattern(self, species: BatterySpecies) -> SteplistPattern:
         return Repeat(StepProperties())
 
@@ -25,12 +32,35 @@ class Testinfo(EvalPattern):
         steps: typing.List[Step],
         df: CyclingData | None,
     ) -> TestinfoEval:
+        chargeAh = self.chargeAh
+        dischargeAh = self.dischargeAh
+        totalAh = self.totalAh
+        lastCharge = self.lastCharge
+        lastDischarge = self.lastDischarge
+
+        if chargeAh is None:
+            chargeAh = sum([max(s.charge, 0) for s in steps])
+        if dischargeAh is None:
+            dischargeAh = abs(sum([min(s.charge, 0) for s in steps]))
+        if totalAh is None:
+            totalAh = sum([abs(s.charge) for s in steps])
+        if lastCharge is None:
+            if self.skipAhCounters:
+                lastCharge = steps[0].chargeStart
+            else:
+                lastCharge = steps[-1].chargeEnd
+        if lastDischarge is None:
+            if self.skipAhCounters:
+                lastDischarge = steps[0].dischargeStart
+            else:
+                lastDischarge = steps[-1].dischargeEnd
+
         return TestinfoEval(
             duration=steps[-1].end - steps[0].start,
             rows=steps[-1].rowEnd,
-            chargeAh=sum([max(s.charge, 0) for s in steps]),
-            dischargeAh=abs(sum([min(s.charge, 0) for s in steps])),
-            totalAh=sum([abs(s.charge) for s in steps]),
+            chargeAh=chargeAh,
+            dischargeAh=dischargeAh,
+            totalAh=totalAh,
             firstVoltage=steps[0].getStartVoltage(),
             lastVoltage=steps[-1].getEndVoltage(),
             minVoltage=min(
@@ -59,9 +89,12 @@ class Testinfo(EvalPattern):
             firstCapacity=steps[0].capacity,
             lastCapacity=steps[-1].capacity,
             firstCharge=steps[0].chargeStart,
-            lastCharge=steps[-1].chargeStart,
+            lastCharge=lastCharge,
             firstDischarge=steps[0].dischargeStart,
-            lastDischarge=steps[-1].dischargeStart,
+            lastDischarge=lastDischarge,
             age=steps[0].ageStart,
             chargeThroughput=steps[0].dischargeStart,
+            matchStart=steps[0].start,
+            matchEnd=steps[-1].end,
+            starttime=test.start,
         )

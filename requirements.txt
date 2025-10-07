@@ -2,7 +2,7 @@ pytest==7.2.2
 pytest-cov==4.0.0
 parse==1.19.0
 pandas==2.2.2
-mypy==1.1.1
+mypy>=1.18.2
 pandas-stubs==1.5.3.230321
 altair==5.1.2
 click==8.1.7
@@ -16,3 +16,6 @@ scipy==1.13.1
 pyarrow==16.1.0
 pydata-sphinx-theme==0.16.0
 sphinx-click==6.0.0
+types-ratelimit
+types-requests
+types-python-dateutil

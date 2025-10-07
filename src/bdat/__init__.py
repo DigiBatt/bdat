@@ -1,5 +1,7 @@
 import os
 
+BDAT_DEBUG = False
+
 
 def get_version():
     with open(

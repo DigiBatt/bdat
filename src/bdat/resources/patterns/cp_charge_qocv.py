@@ -1,3 +1,4 @@
+import datetime
 import math
 import typing
 from dataclasses import dataclass
@@ -75,22 +76,22 @@ class CPChargeQOCV(EvalPattern):
         pauseStep = None if pauseMatch is None else pauseMatch.steps[0].asPause()
         chaStep = next(match.get_matches(self.chargeStep)).steps[0].asCP()
 
-        rawVoltage = data.voltage[dchStep.rowStart : dchStep.rowEnd]
+        rawVoltage = data.voltage[chaStep.rowStart : chaStep.rowEnd]
         rawCharge = (
-            data.discharge[dchStep.rowStart : dchStep.rowEnd]
-            - data.discharge[dchStep.rowStart]
+            data.charge[chaStep.rowStart : chaStep.rowEnd]
+            - data.charge[chaStep.rowStart]
         )
         if self.numSamples:
-            charge = np.linspace(0, 1, self.numSamples) * abs(dchStep.charge)
+            charge = np.linspace(0, 1, self.numSamples) * abs(chaStep.charge)
             voltage = np.interp(charge, rawCharge, rawVoltage)
         else:
-            charge = data.discharge[dchStep.rowStart : dchStep.rowEnd]
-            voltage = data.voltage[dchStep.rowStart : dchStep.rowEnd]
+            charge = rawCharge
+            voltage = rawVoltage
 
         if self.makeDerivatives:
-            ## LEAN method
+            ## LEAN method - ICA
             dVidx = np.nonzero(
-                np.diff(np.minimum.accumulate(rawVoltage), prepend=rawVoltage[0] + 1)
+                np.diff(np.maximum.accumulate(rawVoltage), prepend=rawVoltage[0] - 1)
             )[0]
             v = rawVoltage[dVidx]
             dQ = np.hstack(
@@ -100,41 +101,52 @@ class CPChargeQOCV(EvalPattern):
                 ]
             )
             dV = np.hstack([v[1] - v[0], (v[2:] - v[:-2]) / 2, v[-1] - v[-2]])
-
             dQdV = dQ / dV
-            if self.numSamples:
-                icaX = np.linspace(v[0], v[-1], self.numSamples).tolist()
-                icaY = np.interp(icaX, v, dQdV).tolist()
-            else:
-                icaX = v.tolist()
-                icaY = dQdV.tolist()
-
-            dVdQvalid = np.nonzero(dQ)
-            dVdQ = dV[dVdQvalid] / dQ[dVdQvalid]
-            q = (rawCharge[np.hstack([dVidx[1:], -1])] + rawCharge[dVidx]) / 2
-            q = q[dVdQvalid]
 
             windowsize = 201
             m = math.floor(windowsize / 2)
             kernel = np.ones(windowsize) / windowsize
             kernel = scipy.stats.norm.pdf(np.linspace(-1, 1, windowsize), scale=0.5)
             kernel /= sum(kernel)
-            smootheddVdQ = np.convolve(dVdQ, kernel, "same")
             correctionWeights = np.cumsum(kernel[m + 1 :]) + np.sum(kernel[0:m])
+            smootheddQdV = np.convolve(dQdV, kernel, "same")
+            smootheddQdV[: len(correctionWeights)] /= correctionWeights
+            smootheddQdV[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
+
+            if self.numSamples:
+                icaX = np.linspace(v[0], v[-1], self.numSamples).tolist()
+                icaY = np.interp(icaX, v, dQdV).tolist()
+                smoothIcaY = np.interp(icaX, v, smootheddQdV).tolist()
+            else:
+                icaX = v.tolist()
+                icaY = dQdV.tolist()
+                smoothIcaY = smootheddQdV.tolist()
+
+            # DVA
+            dVdQvalid = np.nonzero(dQ)
+            dVdQ = dV[dVdQvalid] / dQ[dVdQvalid]
+            q = (rawCharge[np.hstack([dVidx[1:], -1])] + rawCharge[dVidx]) / 2
+            q = q[dVdQvalid]
+
+            smootheddVdQ = np.convolve(dVdQ, kernel, "same")
             smootheddVdQ[: len(correctionWeights)] /= correctionWeights
             smootheddVdQ[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
 
             if self.numSamples:
                 dvaX = np.linspace(q[0], q[-1], self.numSamples).tolist()
-                dvaY = np.interp(dvaX, q, smootheddVdQ).tolist()
+                dvaY = np.interp(dvaX, q, dVdQ).tolist()
+                smoothDvaY = np.interp(dvaX, q, smootheddVdQ).tolist()
             else:
                 dvaX = q.tolist()
-                dvaY = smootheddVdQ.tolist()
+                dvaY = dVdQ.tolist()
+                smoothDvaY = smootheddVdQ.tolist()
         else:
             icaX = None
             icaY = None
             dvaX = None
             dvaY = None
+            smoothIcaY = None
+            smoothDvaY = None
 
         if test.object.type is None:
             soc = None
@@ -186,4 +198,13 @@ class CPChargeQOCV(EvalPattern):
             dvaY=dvaY,
             icaX=icaX,
             icaY=icaY,
+            smoothDvaY=smoothDvaY,
+            smoothIcaY=smoothIcaY,
+            matchStart=dchStep.start,
+            matchEnd=chaStep.end,
+            starttime=(
+                test.start + datetime.timedelta(seconds=chaStep.start)
+                if test.start
+                else None
+            ),
         )

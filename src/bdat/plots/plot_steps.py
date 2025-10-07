@@ -1,3 +1,5 @@
+import typing
+
 import pandas as pd
 
 import altair as alt
@@ -5,6 +7,7 @@ from bdat.database.storage.entity import Entity
 from bdat.database.storage.storage import Storage
 from bdat.dataimport import import_rules
 from bdat.entities.dataspec.column_spec import Unit
+from bdat.entities.dataspec.data_spec import DataSpec
 from bdat.entities.plots import Plotdata
 from bdat.entities.steps.step import CCStep
 from bdat.entities.steps.steplist import Steplist
@@ -15,8 +18,13 @@ from . import altair_theme
 
 @plot("steps")
 def plot_steps(
-    storage: Storage, steps: Entity, df: pd.DataFrame | None = None
+    storage: Storage,
+    steps: Entity,
+    df: pd.DataFrame | None = None,
+    dataspec: DataSpec | None = None,
+    timerange: typing.Tuple[float, float] | None = None,
 ) -> Plotdata:
+    alt.data_transformers.disable_max_rows()
     if not isinstance(steps, Steplist):
         raise Exception("Invalid resource type")
     test = steps.test
@@ -25,10 +33,15 @@ def plot_steps(
         if datafile is None:
             raise Exception("Test has no data")
         df = pd.read_parquet(datafile)
-    dataspec = import_rules.get_dataspec(test, df)
+    if dataspec is None:
+        dataspec = import_rules.get_dataspec(test, df)
     duration = dataspec.durationColumn.timeFormat.toSeconds(
         df[dataspec.durationColumn.name].to_numpy()
     )
+    if timerange is not None:
+        mask = (duration >= timerange[0]) & (duration <= timerange[1])
+        duration = duration[mask]
+        df = df[mask]
     timeBins = pd.cut(duration, 1000, labels=False)
     columns = [
         (dataspec.currentColumn, "current"),
@@ -65,6 +78,10 @@ def plot_steps(
             for s in steps
         ]
     )
+    if timerange is not None:
+        dfSteps = dfSteps[
+            (dfSteps.start <= timerange[1]) & (dfSteps.end >= timerange[0])
+        ]
 
     currentColor = "#f58518"
     voltageColor = "#4c78a8"

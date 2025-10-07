@@ -7,4 +7,6 @@ config.json
 /altair/out
 /sphinx/_build
 /sphinx/bdat
+/build
 .mypy_cache
+/build

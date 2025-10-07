@@ -50,18 +50,3 @@ class NewareAhjoDataSpec(DataSpec):
             voltageColumn,
             chargeColumn,
         )
-
-
-class NewareCorvusDataSpec(DataSpec):
-    def __init__(self, test: entities.Cycling, df: pd.DataFrame):
-        # TODO: check if temperature column exists in aux data
-        timeColumn = TimeColumnSpec("Time [datetime]", Timestamp())
-        currentColumn = ColumnSpec("Current [A]")
-        voltageColumn = ColumnSpec("Voltage [V]")
-        super().__init__(
-            "neware_corvus",
-            timeColumn,
-            currentColumn,
-            voltageColumn,
-            Calculate(currentColumn, timeColumn),
-        )

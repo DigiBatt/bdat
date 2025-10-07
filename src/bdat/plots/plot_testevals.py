@@ -1,3 +1,5 @@
+import typing
+
 import numpy as np
 import pandas as pd
 
@@ -14,7 +16,10 @@ from .plot_steps import plot_steps
 
 @plot("testevals")
 def plot_testevals(
-    storage: Storage, testeval: Entity, df: pd.DataFrame | None = None
+    storage: Storage,
+    testeval: Entity,
+    df: pd.DataFrame | None = None,
+    timerange: typing.Tuple[float, float] | None = None,
 ) -> Plotdata:
     if not isinstance(testeval, entities.patterns.TestEval):
         raise Exception("Invalid resource type")
@@ -32,11 +37,15 @@ def plot_testevals(
             if not isinstance(e, TestinfoEval)
         ]
     )
+    if timerange is not None:
+        dfEvals = dfEvals[
+            (dfEvals.start <= timerange[1]) & (dfEvals.end >= timerange[0])
+        ]
 
     if testeval.steps.plotdata is None:
-        dfTest = plot_steps(storage, testeval.steps, df).data["test"]
+        dfTest = plot_steps(storage, testeval.steps, df, None, timerange).data["test"]
     else:
-        dfTest = testeval.steps.plotdata["test"]
+        dfTest = pd.DataFrame.from_records(testeval.steps.plotdata["test"])
 
     currentColor = "#f58518"
     voltageColor = "#4c78a8"

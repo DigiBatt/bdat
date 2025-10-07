@@ -1,11 +1,13 @@
 import io
 import json
 import os
+import time
 import typing
 import uuid
 from datetime import datetime
 
 import bson
+import dateutil.parser
 import requests
 from ratelimit import limits, sleep_and_retry
 
@@ -122,6 +124,16 @@ class KadiCollection(Collection):
             elif len(record_files) > 1:
                 raise NotImplementedError("Record has multiple files")
             file_id = record_files[0]["id"]
+        if self.database.cachedir:
+            filepath = os.path.join(self.database.cachedir, "files", file_id)
+            if os.path.exists(filepath):
+                modifydate = dateutil.parser.isoparse(
+                    record_file["last_modified"]
+                ).timestamp()
+                filestat = os.stat(filepath)
+                if filestat.st_mtime == modifydate:
+                    # print(f"{file_id} from file cache")
+                    return open(filepath, "rb")
         file = io.BytesIO()
         r = self.__request(
             "GET",
@@ -131,6 +143,15 @@ class KadiCollection(Collection):
         )
         file.write(r.raw.read())
         file.seek(0)
+        if self.database.cachedir:
+            filepath = os.path.join(self.database.cachedir, "files", file_id)
+            with open(filepath, "wb") as f:
+                f.write(file.read())
+                file.seek(0)
+            modifydate = dateutil.parser.isoparse(
+                record_file["last_modified"]
+            ).timestamp()
+            os.utime(filepath, (time.time(), modifydate))
         return file
 
     def put_file(
@@ -304,6 +325,20 @@ class KadiCollection(Collection):
         return result
 
     def __record_to_doc(self, record):
+        if self.database.cachedir:
+            filepath = os.path.join(
+                self.database.cachedir, "records", f'{record["id"]}.json'
+            )
+            if os.path.exists(filepath):
+                modifydate = dateutil.parser.isoparse(
+                    record["last_modified"]
+                ).timestamp()
+                filestat = os.stat(filepath)
+                if filestat.st_mtime == modifydate:
+                    # print(f"record {record['id']} from file cache")
+                    with open(filepath, "r") as f:
+                        return json.load(f)
+
         doc = self.__unpack_extras(record["extras"])
         doc["id"] = record["id"]
         doc["_type"] = record["type"]
@@ -330,6 +365,16 @@ class KadiCollection(Collection):
                 if not f"records/{record_id}" in self.cache:
                     # print(f"records/{record_id} to cache")
                     self.cache[f"records/{record_id}"] = l["record_to"]
+
+        if self.database.cachedir:
+            filepath = os.path.join(
+                self.database.cachedir, "records", f'{record["id"]}.json'
+            )
+            with open(filepath, "w") as f:
+                json.dump(doc, f)
+            modifydate = dateutil.parser.isoparse(record["last_modified"]).timestamp()
+            os.utime(filepath, (time.time(), modifydate))
+
         return doc
 
     def __doc_to_record(self, doc):
@@ -391,3 +436,6 @@ class KadiCollection(Collection):
         elif not "type" in query:
             query["type"] = self.name
         return self.__request("GET", "extended-templates/query/ids", json=query)
+
+    def get_link(self, document_id: IdType) -> str:
+        return self.database.url + "/records/" + str(document_id)

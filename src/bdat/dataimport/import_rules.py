@@ -3,9 +3,9 @@ from bdat.entities.dataspec.charge_spec import SeparateColumns
 from bdat.entities.dataspec.column_spec import ColumnSpec
 from bdat.entities.dataspec.data_spec import DataSpec
 from bdat.entities.dataspec.unit import Unit
-from bdat.exceptions import NoCyclingDataException
+from bdat.exceptions import MissingDataspecException, NoCyclingDataException
 from bdat.resources.dataspec.bm import BMDataSpec
-from bdat.resources.dataspec.neware import NewareAhjoDataSpec, NewareCorvusDataSpec
+from bdat.resources.dataspec.neware import NewareAhjoDataSpec
 
 
 def could_be_cycling(test: entities.Cycling) -> bool:
@@ -16,6 +16,8 @@ def could_be_cycling(test: entities.Cycling) -> bool:
     if test.tool is not None and test.tool.title.startswith("Kreis"):
         if test.parent is None:
             return False
+        if not "Format01" in test.title:
+            return False
     if test.tool is not None and test.tool.title.lower().startswith("eis"):
         return False
     return True
@@ -25,20 +27,12 @@ def could_be_cycling(test: entities.Cycling) -> bool:
 # TODO: this could directly return a CyclingData instance
 
 
-def get_dataspec(test: entities.Cycling, df) -> DataSpec:
+def _get_dataspec(test: entities.Cycling, df) -> DataSpec:
     if test.title.endswith("NoName_VA") or test.title.endswith("NoName_MSG"):
         raise NoCyclingDataException(test)
     try:
         spec: DataSpec = NewareAhjoDataSpec(test, df)
         return spec
-    except:
-        pass
-    try:
-        spec = NewareCorvusDataSpec(test, df)
-        if spec.tryOnTest(df):
-            df["Temperature [degC]"] = 25
-            spec.temperatureColumn = ColumnSpec("Temperature [degC]")
-            return spec
     except:
         pass
     try:
@@ -53,6 +47,17 @@ def get_dataspec(test: entities.Cycling, df) -> DataSpec:
     except:
         pass
 
-    raise RuntimeError(
-        f"Could not find suitable dataspec for test (columns: {df.columns})"
-    )
+    raise MissingDataspecException(test, df.columns)
+
+
+try:
+    import bdat.custom.import_rules
+
+    def get_dataspec(test: entities.Cycling, df) -> DataSpec:
+        spec = bdat.custom.import_rules.get_dataspec(test, df)
+        if not spec:
+            spec = _get_dataspec(test, df)
+        return spec
+
+except:
+    get_dataspec = _get_dataspec

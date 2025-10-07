@@ -64,3 +64,7 @@ class Collection(ABC):
     @abstractmethod
     def query_ids(self, query: typing.Dict | None) -> typing.List[IdType]:
         pass
+
+    @abstractmethod
+    def get_link(self, document_id: IdType) -> str:
+        pass

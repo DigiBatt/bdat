@@ -33,6 +33,9 @@ class CollectionId:
     def to_str(self) -> str:
         return f"{self.database.name}:{self.name}"
 
+    def __eq__(self, other):
+        return self.database == other.database and self.name == other.name
+
 
 @dataclass
 class ResourceId(Generic[IdType, ResourceType]):
@@ -112,3 +115,6 @@ class ResourceId(Generic[IdType, ResourceType]):
 
     def to_str(self) -> str:
         return f"{self.collection.database.name}:{self.collection.name}:{str(self.id)}"
+
+    def __eq__(self, other):
+        return self.collection == other.collection and self.id == other.id

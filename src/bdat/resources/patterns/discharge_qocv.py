@@ -1,3 +1,4 @@
+import datetime
 import math
 import typing
 from dataclasses import dataclass
@@ -48,7 +49,7 @@ class DischargeQOCV(EvalPattern):
         dischargeCurrent = make_range(
             [
                 self.dischargeCurrent,
-                (-0.2 * species.capacity, 0.0),
+                (-0.11 * species.capacity, 0.0),
             ],
             (-1.05, -0.95),
         )
@@ -68,7 +69,12 @@ class DischargeQOCV(EvalPattern):
         )
 
         return Series(
-            [self.chargeStep, Optional(self.cvStep), self.pauseStep, self.dischargeStep]
+            [
+                self.chargeStep,
+                Optional(self.cvStep),
+                Optional(self.pauseStep),
+                self.dischargeStep,
+            ]
         )
 
     def eval_needs_data(self) -> bool:
@@ -87,7 +93,8 @@ class DischargeQOCV(EvalPattern):
         chaStep = next(match.get_matches(self.chargeStep)).steps[0].asCC()
         cvMatch = next(match.get_matches(self.cvStep), None)
         cvStep = None if cvMatch is None else cvMatch.steps[0].asCV()
-        pauseStep = next(match.get_matches(self.pauseStep)).steps[0].asPause()
+        pauseMatch = next(match.get_matches(self.pauseStep), None)
+        pauseStep = None if pauseMatch is None else pauseMatch.steps[0].asPause()
         dchStep = next(match.get_matches(self.dischargeStep)).steps[0].asCC()
 
         rawVoltage = data.voltage[dchStep.rowStart : dchStep.rowEnd]
@@ -99,11 +106,11 @@ class DischargeQOCV(EvalPattern):
             charge = np.linspace(0, 1, self.numSamples) * abs(dchStep.charge)
             voltage = np.interp(charge, rawCharge, rawVoltage)
         else:
-            charge = data.discharge[dchStep.rowStart : dchStep.rowEnd]
-            voltage = data.voltage[dchStep.rowStart : dchStep.rowEnd]
+            charge = rawCharge
+            voltage = rawVoltage
 
         if self.makeDerivatives:
-            ## LEAN method
+            ## LEAN method - ICA
             dVidx = np.nonzero(
                 np.diff(np.minimum.accumulate(rawVoltage), prepend=rawVoltage[0] + 1)
             )[0]
@@ -117,81 +124,54 @@ class DischargeQOCV(EvalPattern):
             dV = np.hstack([v[1] - v[0], (v[2:] - v[:-2]) / 2, v[-1] - v[-2]])
 
             dQdV = dQ / dV
-            if self.numSamples:
-                icaX = np.linspace(v[0], v[-1], self.numSamples).tolist()
-                icaY = np.interp(icaX, v, dQdV).tolist()
-            else:
-                icaX = v.tolist()
-                icaY = dQdV.tolist()
-
-            dVdQvalid = np.nonzero(dQ)
-            dVdQ = dV[dVdQvalid] / dQ[dVdQvalid]
-            q = (rawCharge[np.hstack([dVidx[1:], -1])] + rawCharge[dVidx]) / 2
-            q = q[dVdQvalid]
+            ascIdx = np.argsort(v)
+            v = v[ascIdx]
+            dQdV = dQdV[ascIdx]
 
             windowsize = 201
             m = math.floor(windowsize / 2)
             kernel = np.ones(windowsize) / windowsize
             kernel = scipy.stats.norm.pdf(np.linspace(-1, 1, windowsize), scale=0.5)
             kernel /= sum(kernel)
-            smootheddVdQ = np.convolve(dVdQ, kernel, "same")
             correctionWeights = np.cumsum(kernel[m + 1 :]) + np.sum(kernel[0:m])
+            smootheddQdV = np.convolve(dQdV, kernel, "same")
+            smootheddQdV[: len(correctionWeights)] /= correctionWeights
+            smootheddQdV[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
+
+            if self.numSamples:
+                icaX = np.linspace(v[0], v[-1], self.numSamples).tolist()
+                icaY = np.interp(icaX, v, dQdV).tolist()
+                smoothIcaY = np.interp(icaX, v, smootheddQdV).tolist()
+            else:
+                icaX = v.tolist()
+                icaY = dQdV.tolist()
+                smoothIcaY = smootheddQdV.tolist()
+
+            # DVA
+            dVdQvalid = np.nonzero(dQ)
+            dVdQ = dV[dVdQvalid] / dQ[dVdQvalid]
+            q = (rawCharge[np.hstack([dVidx[1:], -1])] + rawCharge[dVidx]) / 2
+            q = q[dVdQvalid]
+
+            smootheddVdQ = np.convolve(dVdQ, kernel, "same")
             smootheddVdQ[: len(correctionWeights)] /= correctionWeights
             smootheddVdQ[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
 
             if self.numSamples:
                 dvaX = np.linspace(q[0], q[-1], self.numSamples).tolist()
-                dvaY = np.interp(dvaX, q, smootheddVdQ).tolist()
+                dvaY = np.interp(dvaX, q, dVdQ).tolist()
+                smoothDvaY = np.interp(dvaX, q, smootheddVdQ).tolist()
             else:
                 dvaX = q.tolist()
-                dvaY = smootheddVdQ.tolist()
-
-        ## gaussian kernel
-
-        # windowsize = 501
-        # m = math.floor(windowsize / 2)
-        # kernel = np.ones(windowsize) / windowsize
-        # kernel = scipy.stats.norm.pdf(np.linspace(-1, 1, windowsize), scale=0.5)
-        # kernel /= sum(kernel)
-        # smoothedVoltage = np.convolve(rawVoltage, kernel, "same")
-        # smoothedCharge = rawCharge
-
-        # correctionWeights = np.cumsum(kernel[m + 1 :]) + np.sum(kernel[0:m])
-        # smoothedVoltage[: len(correctionWeights)] /= correctionWeights
-        # smoothedVoltage[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
-
-        # charge = np.arange(0, 1.005, 0.005) * abs(dchStep.charge)
-        # voltage = np.interp(charge, smoothedCharge, smoothedVoltage)
-        # rawDvaY = np.diff(smoothedVoltage, append=smoothedVoltage[-1]) / np.diff(
-        #     smoothedCharge, append=smoothedCharge[-1] + 1
-        # )
-        # rawDvaY[-1] = rawDvaY[-2]
-
-        # windowsize = 301
-        # m = math.floor(windowsize / 2)
-        # kernel = np.ones(windowsize) / windowsize
-        # kernel = scipy.stats.norm.pdf(np.linspace(-1, 1, windowsize), scale=0.5)
-        # kernel /= sum(kernel)
-        # smoothedDvaY = np.convolve(rawDvaY, kernel, "same")
-        # smoothedDvaX = smoothedCharge
-
-        # correctionWeights = np.cumsum(kernel[m + 1 :]) + np.sum(kernel[0:m])
-        # smoothedDvaY[: len(correctionWeights)] /= correctionWeights
-        # smoothedDvaY[-1 : -len(correctionWeights) - 1 : -1] /= correctionWeights
-
-        # dvaX = charge
-        # dvaY = np.interp(dvaX, smoothedDvaX, smoothedDvaY)
-
-        ## raw data
-
-        # charge = data.discharge[dchStep.rowStart : dchStep.rowEnd]
-        # voltage = data.voltage[dchStep.rowStart : dchStep.rowEnd]
-
+                dvaY = dVdQ.tolist()
+                smoothDvaY = smootheddVdQ.tolist()
         else:
             icaX = None
             icaY = None
             dvaX = None
             dvaY = None
+            smoothIcaY = None
+            smoothDvaY = None
 
         if test.object.type is None:
             soc = None
@@ -204,8 +184,12 @@ class DischargeQOCV(EvalPattern):
         lastStep = dchStep.stepId
         chargeCurrent = chaStep.current
         eocVoltage = chaStep.voltageEnd
-        pauseDuration = pauseStep.duration
-        relaxedVoltage = pauseStep.voltageEnd
+        if pauseStep is None:
+            pauseDuration = 0
+            relaxedVoltage = None
+        else:
+            pauseDuration = pauseStep.duration
+            relaxedVoltage = pauseStep.voltageEnd
         dischargeCurrent = dchStep.current
         dischargeDuration = dchStep.duration
         capacity = dchStep.charge
@@ -249,4 +233,11 @@ class DischargeQOCV(EvalPattern):
             dvaY=dvaY,
             icaX=icaX,
             icaY=icaY,
+            smoothDvaY=smoothDvaY,
+            smoothIcaY=smoothIcaY,
+            matchStart=chaStep.start,
+            matchEnd=dchStep.end,
+            starttime=(
+                test.start + datetime.timedelta(seconds=start) if test.start else None
+            ),
         )
