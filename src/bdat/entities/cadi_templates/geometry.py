@@ -6,8 +6,8 @@ from .typeofobject import TypeOfObject
 
 @dataclass
 class Geometry(TypeOfObject):
-    type: "str | None"
-    height: "float | None"
-    length: "float | None"
-    width: "float | None"
-    diameter: "float | None"
+    type: "str | None" = None
+    height: "float | None" = None
+    length: "float | None" = None
+    width: "float | None" = None
+    diameter: "float | None" = None

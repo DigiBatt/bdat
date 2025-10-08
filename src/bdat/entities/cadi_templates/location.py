@@ -6,4 +6,4 @@ from .entity import Entity
 
 @dataclass
 class Location(Entity):
-    parent: "Location | None"
+    parent: "Location | None" = None

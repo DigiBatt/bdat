@@ -8,7 +8,7 @@ from .measurement import Measurement
 @dataclass
 class Inventory(Measurement):
     actor: "legalentity.LegalEntity"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
     object: "objectofresearch.ObjectOfResearch"
-    measurement: "measurement.Measurement | None"
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    measurement: "measurement.Measurement | None" = None

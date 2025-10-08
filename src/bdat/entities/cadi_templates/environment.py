@@ -9,8 +9,8 @@ from .measurement import Measurement
 @dataclass
 class Environment(Measurement):
     actor: "legalentity.LegalEntity"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
-    object: "objectofresearch.ObjectOfResearch | None"
-    start: "datetime | None"
-    end: "datetime | None"
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    object: "objectofresearch.ObjectOfResearch | None" = None
+    start: "datetime | None" = None
+    end: "datetime | None" = None

@@ -8,8 +8,8 @@ from .objectofresearch import ObjectOfResearch
 
 @dataclass
 class Battery(ObjectOfResearch):
-    project: "project.Project | None"
-    type: "batteryspecies.BatterySpecies | None"
-    inventoryUser: "person.Person | None"
-    properties: "typing.Dict[str, typing.Any] | None"
-    inventoryDate: "datetime | None"
+    project: "project.Project | None" = None
+    type: "batteryspecies.BatterySpecies | None" = None
+    inventoryUser: "person.Person | None" = None
+    properties: "typing.Dict[str, typing.Any] | None" = None
+    inventoryDate: "datetime | None" = None

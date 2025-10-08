@@ -6,6 +6,6 @@ from .legalentity import LegalEntity
 
 @dataclass
 class Person(LegalEntity):
-    firstname: "str | None"
-    lastname: "str | None"
-    login: "str | None"
+    firstname: "str | None" = None
+    lastname: "str | None" = None
+    login: "str | None" = None

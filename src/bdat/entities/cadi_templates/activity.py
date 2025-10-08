@@ -7,5 +7,5 @@ from .entity import Entity
 
 @dataclass
 class Activity(Entity):
-    actor: "legalentity.LegalEntity | None"
-    tool: "tool.Tool | None"
+    actor: "legalentity.LegalEntity | None" = None
+    tool: "tool.Tool | None" = None

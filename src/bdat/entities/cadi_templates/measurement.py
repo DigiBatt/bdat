@@ -7,7 +7,7 @@ from .activity import Activity
 
 @dataclass
 class Measurement(Activity):
-    actor: "legalentity.LegalEntity | None"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
-    object: "objectofresearch.ObjectOfResearch | None"
+    actor: "legalentity.LegalEntity | None" = None
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    object: "objectofresearch.ObjectOfResearch | None" = None

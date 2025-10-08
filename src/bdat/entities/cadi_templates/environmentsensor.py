@@ -7,5 +7,5 @@ from .device import Device
 
 @dataclass
 class EnvironmentSensor(Device):
-    type: "devicetype.DeviceType | None"
-    location: "location.Location | None"
+    type: "devicetype.DeviceType | None" = None
+    location: "location.Location | None" = None

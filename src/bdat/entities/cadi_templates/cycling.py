@@ -16,13 +16,13 @@ from .measurement import Measurement
 
 @dataclass
 class Cycling(Measurement):
-    actor: "legalentity.LegalEntity | None"
-    tool: "cyclercircuit.CyclerCircuit | None"
-    location: "location.Location | None"
     object: "battery.Battery"
-    set: "activityset.ActivitySet | None"
-    project: "project.Project | None"
-    parent: "Cycling | None"
-    environmentSection: "environmentsection.EnvironmentSection | None"
-    start: "datetime | None"
-    end: "datetime | None"
+    actor: "legalentity.LegalEntity | None" = None
+    tool: "cyclercircuit.CyclerCircuit | None" = None
+    location: "location.Location | None" = None
+    set: "activityset.ActivitySet | None" = None
+    project: "project.Project | None" = None
+    parent: "Cycling | None" = None
+    environmentSection: "environmentsection.EnvironmentSection | None" = None
+    start: "datetime | None" = None
+    end: "datetime | None" = None

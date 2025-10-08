@@ -7,7 +7,7 @@ from .device import Device
 
 @dataclass
 class CyclerCircuit(Device):
-    type: "devicetype.DeviceType | None"
-    location: "location.Location | None"
-    parent: "device.Device | None"
-    identify: "str | None"
+    type: "devicetype.DeviceType | None" = None
+    location: "location.Location | None" = None
+    parent: "device.Device | None" = None
+    identify: "str | None" = None

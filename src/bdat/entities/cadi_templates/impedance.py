@@ -9,10 +9,10 @@ from .measurement import Measurement
 @dataclass
 class Impedance(Measurement):
     actor: "legalentity.LegalEntity"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
     object: "battery.Battery"
-    time: "datetime | None"
-    impedance: "float | None"
-    temperature: "float | None"
-    voltage: "float | None"
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    time: "datetime | None" = None
+    impedance: "float | None" = None
+    temperature: "float | None" = None
+    voltage: "float | None" = None

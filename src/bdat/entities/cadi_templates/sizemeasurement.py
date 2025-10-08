@@ -8,12 +8,12 @@ from .measurement import Measurement
 
 @dataclass
 class SizeMeasurement(Measurement):
-    actor: "legalentity.LegalEntity | None"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
     object: "objectofresearch.ObjectOfResearch"
-    time: "datetime | None"
-    width: "float | None"
-    length: "float | None"
-    height: "float | None"
-    diameter: "float | None"
+    actor: "legalentity.LegalEntity | None" = None
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    time: "datetime | None" = None
+    width: "float | None" = None
+    length: "float | None" = None
+    height: "float | None" = None
+    diameter: "float | None" = None

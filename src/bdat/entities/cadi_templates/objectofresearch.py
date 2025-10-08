@@ -7,5 +7,5 @@ from .entity import Entity
 
 @dataclass
 class ObjectOfResearch(Entity):
-    project: "project.Project | None"
-    type: "typeofobject.TypeOfObject | None"
+    project: "project.Project | None" = None
+    type: "typeofobject.TypeOfObject | None" = None

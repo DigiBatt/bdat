@@ -16,12 +16,12 @@ from .measurement import Measurement
 
 @dataclass
 class EnvironmentSection(Measurement):
-    actor: "legalentity.LegalEntity | None"
-    tool: "tool.Tool | None"
-    location: "location.Location | None"
     object: "objectofresearch.ObjectOfResearch"
-    environment: "environmentmeasurement.EnvironmentMeasurement | None"
-    set: "activityset.ActivitySet | None"
-    project: "project.Project | None"
-    start: "datetime | None"
-    end: "datetime | None"
+    actor: "legalentity.LegalEntity | None" = None
+    tool: "tool.Tool | None" = None
+    location: "location.Location | None" = None
+    environment: "environmentmeasurement.EnvironmentMeasurement | None" = None
+    set: "activityset.ActivitySet | None" = None
+    project: "project.Project | None" = None
+    start: "datetime | None" = None
+    end: "datetime | None" = None

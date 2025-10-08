@@ -7,6 +7,6 @@ from .managemententity import ManagementEntity
 
 @dataclass
 class Project(ManagementEntity):
-    status: "str | None"
-    start: "datetime | None"
-    end: "datetime | None"
+    status: "str | None" = None
+    start: "datetime | None" = None
+    end: "datetime | None" = None
