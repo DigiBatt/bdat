@@ -18,9 +18,15 @@ class BMConvertedDataSpec(DataSpec):
             temperatureColumn = ColumnSpec(temperatureName, Unit.BASE)
         else:
             temperatureColumn = None
+        if "Program Duration#s" in df.columns:
+            timeUnit = Unit.BASE
+            timeColumn = "Program Duration#s"
+        else:
+            timeUnit = Unit.MILLI
+            timeColumn = "Program Duration#ms"
         super().__init__(
             "bm",
-            TimeColumnSpec("Program Duration#s", Seconds(unit=timeUnit)),
+            TimeColumnSpec(timeColumn, Seconds(unit=timeUnit)),
             ColumnSpec("Current#A", currentUnit),
             ColumnSpec("Voltage#V"),
             SeparateColumns(

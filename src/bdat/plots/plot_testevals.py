@@ -20,6 +20,7 @@ def plot_testevals(
     testeval: Entity,
     df: pd.DataFrame | None = None,
     timerange: typing.Tuple[float, float] | None = None,
+    mark_whole_match: bool = True,
 ) -> Plotdata:
     if not isinstance(testeval, entities.patterns.TestEval):
         raise Exception("Invalid resource type")
@@ -34,8 +35,8 @@ def plot_testevals(
                 "end": e.end,
                 "matchStart": e.matchStart,
                 "matchEnd": e.matchEnd,
-                "plotStart": e.matchStart,
-                "plotEnd": e.matchEnd,
+                "plotStart": e.matchStart if mark_whole_match else e.start,
+                "plotEnd": e.matchEnd if mark_whole_match else e.end,
             }
             for e in testeval.evals
             if not isinstance(e, TestinfoEval)
