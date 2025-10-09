@@ -33,4 +33,6 @@ def find_patterns(
     testeval = TestEval(
         f"test eval - {steplist.test.title}", steplist.test, steplist, testresult
     )
+    for tr in testresult:
+        tr.testEval = testeval
     return testeval

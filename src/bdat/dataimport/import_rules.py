@@ -4,7 +4,9 @@ from bdat.entities.dataspec.column_spec import ColumnSpec
 from bdat.entities.dataspec.data_spec import DataSpec
 from bdat.entities.dataspec.unit import Unit
 from bdat.exceptions import MissingDataspecException, NoCyclingDataException
+from bdat.resources.dataspec.bdf import BDFDataSpec
 from bdat.resources.dataspec.bm import BMDataSpec
+from bdat.resources.dataspec.bm_converted import BMConvertedDataSpec
 from bdat.resources.dataspec.neware import NewareAhjoDataSpec
 
 
@@ -36,14 +38,25 @@ def _get_dataspec(test: entities.Cycling, df) -> DataSpec:
     except:
         pass
     try:
-        if "T1#C1#D" in df.columns:
-            spec = BMDataSpec(timeUnit=Unit.MILLI, temperatureName="T1#C1#D")
-            if spec.tryOnTest(df):
-                return spec
-        else:
-            spec = BMDataSpec(timeUnit=Unit.MILLI)
-            if spec.tryOnTest(df):
-                return spec
+        temperatureName = "T1#C1#D" if "T1#C1#D" in df.columns else None
+        spec = BMDataSpec(timeUnit=Unit.MILLI, temperatureName="T1#C1#D")
+        if spec.tryOnTest(df):
+            return spec
+    except:
+        pass
+    try:
+        temperatureName = "T1#degC" if "T1#degC" in df.columns else None
+        spec = BMConvertedDataSpec(
+            df, timeUnit=Unit.MILLI, temperatureName=temperatureName
+        )
+        if spec.tryOnTest(df):
+            return spec
+    except:
+        pass
+    try:
+        spec = BDFDataSpec(df)
+        if spec.tryOnTest(df):
+            return spec
     except:
         pass
 

@@ -111,7 +111,7 @@ def steps(
     dataspec = import_rules.get_dataspec(test, df)
     data = CyclingData(test, df, dataspec, 0, 0, None)
     try:
-        steplist = bdat.steps.find_steps.find_linear_steps(data)
+        steplist = bdat.steps.find_steps.find_steps(data)
         plotdata = plot_steps(storage, steplist, df)
         steplist.plotdata = plotdata.data
         if not test.end:

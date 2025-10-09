@@ -32,6 +32,10 @@ def plot_testevals(
                 "lastStep": e.lastStep,
                 "start": e.start,
                 "end": e.end,
+                "matchStart": e.matchStart,
+                "matchEnd": e.matchEnd,
+                "plotStart": e.matchStart,
+                "plotEnd": e.matchEnd,
             }
             for e in testeval.evals
             if not isinstance(e, TestinfoEval)
@@ -41,6 +45,8 @@ def plot_testevals(
         dfEvals = dfEvals[
             (dfEvals.start <= timerange[1]) & (dfEvals.end >= timerange[0])
         ]
+        dfEvals.loc[dfEvals.plotStart < timerange[0], "plotStart"] = timerange[0]
+        dfEvals.loc[dfEvals.plotEnd > timerange[1], "plotEnd"] = timerange[1]
 
     if testeval.steps.plotdata is None:
         dfTest = plot_steps(storage, testeval.steps, df, None, timerange).data["test"]
@@ -60,9 +66,12 @@ def plot_testevals(
         "CPDischargeQOCVEval",
     ]
 
+    x = alt.X("time:Q", title="duration / s")
+    if timerange:
+        x.scale = alt.Scale(domain=timerange)
     basechart = alt.Chart(dfTest).mark_line()
     current = basechart.encode(
-        x=alt.X("time:Q", title="time / s"),
+        x,
         y=alt.Y(
             "current:Q",
             title="current / A",
@@ -72,7 +81,7 @@ def plot_testevals(
         color=alt.value(currentColor),
     )
     voltage = basechart.encode(
-        x=alt.X("time:Q", title="time / s"),
+        x,
         y=alt.Y(
             "voltage:Q",
             title="voltage / V",
@@ -86,13 +95,21 @@ def plot_testevals(
         alt.Chart(dfEvals)
         .mark_rect()
         .encode(
-            x=alt.X("start:Q", scale=alt.Scale(zero=False)),
-            x2="end:Q",
+            x=alt.X("plotStart:Q", scale=alt.Scale(zero=False)),
+            x2="plotEnd:Q",
             color=alt.Color(
                 "type:N", scale=alt.Scale(scheme="set2", domain=evalDomain)
             ),
             opacity=alt.value(0.5),
-            tooltip=["type:N", "start:Q", "end:Q", "firstStep:O", "lastStep:O"],
+            tooltip=[
+                "type:N",
+                "start:Q",
+                "end:Q",
+                "matchStart:Q",
+                "matchEnd:Q",
+                "firstStep:O",
+                "lastStep:O",
+            ],
         )
     )
 

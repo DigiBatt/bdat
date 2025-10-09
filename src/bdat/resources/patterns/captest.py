@@ -27,8 +27,6 @@ class Captest(EvalPattern):
     cvRequired: bool = False
 
     def pattern(self, species: BatterySpecies) -> SteplistPattern:
-        print(f"ccRequired: {self.ccRequired}, cvRequired: {self.cvRequired}")
-
         if species.capacity is None:
             raise Exception("Battery species has no defined capacity")
         eocVoltage = make_range(

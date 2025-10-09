@@ -20,3 +20,6 @@ class TestEval(DataProcessing):
     evals: "typing.List[pattern_eval.PatternEval]"
     plotdata: typing.Dict[str, typing.List[typing.Dict]] | None = None
     previous: "TestEval | None" = None
+
+    def __iter__(self):
+        return self.evals.__iter__()

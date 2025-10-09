@@ -177,7 +177,7 @@ def _get_step(
         raise NotImplementedError()
 
 
-def find_linear_steps(
+def find_steps(
     data: CyclingData,
     maxCurrentError=0.05,
     maxCurrentRMSE=0.002,
@@ -237,6 +237,9 @@ def find_linear_steps(
             stepId += 1
         startIdx = step.rowEnd
     return Steplist(f"test steps - {data.test.title}", steps, data.test)
+
+
+find_linear_steps = find_steps
 
 
 def __find_best_step(

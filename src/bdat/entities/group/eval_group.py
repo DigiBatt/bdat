@@ -12,3 +12,6 @@ class EvalGroup(Group):
     evals: "typing.List[TestEval]" = field(default_factory=list)
     evaldata: "typing.List[PatternEval]" = field(default_factory=list)
     evaltype: str | None = None
+
+    def __iter__(self):
+        return self.evaldata.__iter__()

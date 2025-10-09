@@ -25,3 +25,6 @@ class Plotdata(DataProcessing):
         default_factory=default_dict_factory
     )
     plot: List[Dict] | None = None
+
+    def show(self) -> alt.Chart:
+        return alt.Chart.from_dict(self.plot)

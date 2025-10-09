@@ -30,9 +30,9 @@ class CyclingData:
         test: Cycling,
         df: pd.DataFrame,
         dataSpec: DataSpec,
-        initialCharge: float,
-        initialDischarge: float,
-        initialSoc: float | None,
+        initialCharge: float = 0,
+        initialDischarge: float = 0,
+        initialSoc: float | None = None,
     ):
         self.__sort_df(df, dataSpec)
 

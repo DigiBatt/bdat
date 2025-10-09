@@ -51,11 +51,12 @@ class Pulse(EvalPattern):
             (0.95, 1.05),
         )
         duration = make_range([self.duration, (0.5, 60)], (0.95, 1.05))
-        relaxationTime = make_range([self.relaxationTime, (600, 1e9)], (0.95, 1.05))
-        cvVoltage = make_range(
-            [self.cvVoltage, species.endOfChargeVoltage, species.maximumVoltage],
-            deltaAbs=(-0.01, 0.02),
-        )
+        relaxationTime = make_range([self.relaxationTime, (60, 1e9)], (0.95, 1.05))
+        if self.allowCVStep:
+            cvVoltage = make_range(
+                [self.cvVoltage, species.endOfChargeVoltage, species.maximumVoltage],
+                deltaAbs=(-0.01, 0.02),
+            )
 
         self.pauseStep = PauseProperties(duration=relaxationTime)
         self.transitionStep = StepProperties(duration=(0, 0.05))

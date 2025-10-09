@@ -10,6 +10,8 @@ def get_version():
         return version_file.read().strip()
 
 
+from bdat.dataimport.import_rules import get_dataspec
+
 from . import patterns, plots, steps
 from .entities import (
     Battery,
