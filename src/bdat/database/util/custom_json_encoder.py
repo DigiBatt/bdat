@@ -14,5 +14,7 @@ class CustomJSONEncoder(JSONEncoder):
             return obj.to_str()
         elif isinstance(obj, np.int64):
             return int(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
         elif obj != obj:
             return None

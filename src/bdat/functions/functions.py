@@ -11,7 +11,7 @@ import pandas as pd
 
 import bdat.entities as entities
 import bdat.resources.dataspec.bm
-import bdat.steps.find_steps
+import bdat.steps.find_steps as _find_steps
 from bdat.database.exceptions.database_conflict_exception import (
     DatabaseConflictException,
 )
@@ -111,7 +111,7 @@ def steps(
     dataspec = import_rules.get_dataspec(test, df)
     data = CyclingData(test, df, dataspec, 0, 0, None)
     try:
-        steplist = bdat.steps.find_steps.find_steps(data)
+        steplist = _find_steps.find_steps(data)
         plotdata = plot_steps(storage, steplist, df)
         steplist.plotdata = plotdata.data
         if not test.end:
@@ -316,10 +316,13 @@ def battery_patterns(
     battery = storage.get(battery_id)
     if battery is None:
         raise Exception("Could not find battery")
+    test_collection = battery_id.collection
+    if ignore_test:
+        test_collection = ignore_test[0].collection
     testlist = [
         t
         for t in storage.query(
-            battery_id.collection,
+            test_collection,
             entities.Cycling,
             {
                 "type": "cycling",

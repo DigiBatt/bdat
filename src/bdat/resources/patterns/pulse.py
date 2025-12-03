@@ -19,7 +19,14 @@ from bdat.steps.step_pattern import (
     PauseProperties,
     StepProperties,
 )
-from bdat.steps.steplist_pattern import Match, Optional, Or, Series, SteplistPattern
+from bdat.steps.steplist_pattern import (
+    Match,
+    Optional,
+    Or,
+    Repeat,
+    Series,
+    SteplistPattern,
+)
 from bdat.tools.misc import make_range
 
 
@@ -59,11 +66,11 @@ class Pulse(EvalPattern):
             )
 
         self.pauseStep = PauseProperties(duration=relaxationTime)
-        self.transitionStep = StepProperties(duration=(0, 0.05))
+        self.transitionStep = StepProperties(duration=(0, 0.5))
 
         series: typing.List[SteplistPattern] = [self.pauseStep]
         if self.allowTransitionStep:
-            series.append(Optional(self.transitionStep))
+            series.append(Repeat(self.transitionStep, 0, 3))
         if self.allowCVStep:
             self.pulseStep = And(
                 CCProperties(current=current),
@@ -137,6 +144,13 @@ class Pulse(EvalPattern):
                 soc = pulseStep.socStart
                 age = pulseStep.ageStart
                 chargeThroughput = pulseStep.dischargeStart
+
+        if self.allowTransitionStep:
+            transitionMatch = next(match.get_matches(self.transitionStep), None)
+            if transitionMatch:
+                for step in transitionMatch.steps:
+                    duration += step.duration
+                    start = min(start, step.start)
 
         return PulseEval(
             start=start,

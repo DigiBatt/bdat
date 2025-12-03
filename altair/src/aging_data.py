@@ -39,7 +39,7 @@ paramchart_cal = (
     alt.Chart("plotdata_cal.json")
     .mark_point()
     .encode(
-        x=alt.X("soc:Q", title="SOC / %", scale=alt.Scale(zero=False)),
+        x=alt.X("meanSoc:Q", title="SOC / %", scale=alt.Scale(zero=False)),
         y=alt.Y("temperature:Q", title="temperature / °C", scale=alt.Scale(zero=False)),
         color=color_cal,
         size=alt.value(100),
@@ -96,6 +96,7 @@ timechart_cyc_cap = (
             "meanSoc:Q",
         ],
     )
+    .transform_calculate(x=f"datum[{param_cyc_x.name}]")
     .transform_filter(brush_cyc)
     .add_params(zoom_cyc, param_cyc_x)
     .properties(height=270, width=480)
@@ -123,6 +124,7 @@ timechart_cyc_res = (
             "meanSoc:Q",
         ],
     )
+    .transform_calculate(x=f"datum[{param_cyc_x.name}]")
     .transform_filter(brush_cyc)
     .add_params(zoom_cyc)
     .properties(height=270, width=480)
@@ -135,6 +137,7 @@ paramchart_cyc = (
         y=alt.Y("dod:Q", title="DOD / %", scale=alt.Scale(zero=False)),
         color=color_cyc,
         size=alt.value(100),
+        detail="meanSoc:Q",
         tooltip=[
             "cell:N",
             "dod:Q",

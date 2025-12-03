@@ -14,3 +14,4 @@ class AgingData(DataProcessing):
     data: typing.List[CellLife]
     plotdata: typing.Dict[str, typing.List[typing.Dict]] | None = None
     testmatrix: Testmatrix | None = None
+    doi: str | typing.List[str] | None = None

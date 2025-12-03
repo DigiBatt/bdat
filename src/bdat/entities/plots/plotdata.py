@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import pandas as pd
 from bson import ObjectId
 
-import altair as alt
+from altair import Chart  # type: ignore
 from bdat.database.storage.entity import Entity, Filetype, file, identifier
 from bdat.entities.data_processing import DataProcessing
 
@@ -26,5 +28,5 @@ class Plotdata(DataProcessing):
     )
     plot: List[Dict] | None = None
 
-    def show(self) -> alt.Chart:
-        return alt.Chart.from_dict(self.plot)
+    def show(self) -> "Chart":
+        return Chart.from_dict(self.plot)

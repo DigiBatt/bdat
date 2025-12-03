@@ -1,8 +1,12 @@
+import json
 import math
+import os
 import re
 from typing import Any, Callable
 
 import numpy as np
+
+from bdat.database.storage.storage import Storage
 
 
 def make_range(args, deltaRel=(1, 1), deltaAbs=(0, 0), allowNone=False):
@@ -23,6 +27,10 @@ def round_to_n(x, n):
     return round(x, -int(math.floor(math.log10(abs(x)))) + (n - 1))
 
 
+def round_bin(x, binsize):
+    return round(x / binsize) * binsize
+
+
 def make_round_function(
     key: str, get_value: Callable[[Any, str], float]
 ) -> Callable[[Any], float]:
@@ -41,7 +49,7 @@ def make_round_function(
         elif keytype == "round":
             return lambda x: round(get_value(x, key), int(value))
         elif keytype == "bin":
-            return lambda x: round(get_value(x, key) / float(value)) * float(value)
+            return lambda x: round_bin(get_value(x, key), float(value))
         elif keytype == "snap":
             v = np.array([float(x) for x in value.split(",")])
             return lambda x: v[np.argmin(np.abs(get_value(x, key) - v))]
@@ -110,6 +118,32 @@ def make_filter(key_generator, f):
         )
 
     return filter
+
+
+def item_or_raise(x):
+    if len(x) == 1:
+        return x[0]
+    else:
+        raise Exception("Length must be equal to one.")
+
+
+def get_storage(configfile=None):
+    cfg = None
+    if configfile:
+        cfg = json.load(configfile)
+    else:
+        for filename in [
+            "config.json",
+            os.environ.get("HOME", "") + "/.config/bdat/config.json",
+        ]:
+            if os.path.isfile(filename):
+                with open(filename, "r") as f:
+                    cfg = json.load(f)
+                    break
+    if cfg:
+        return Storage(cfg["databases"], "bdat.entities")
+    else:
+        raise Exception("No config file found")
 
 
 def make_getattr(key):

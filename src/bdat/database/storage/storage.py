@@ -240,11 +240,29 @@ class Storage:
                     break
             else:
                 raise FileNotFoundError("Could not find file")
+        elif return_name:
+            for fname in collection.list_files(resource_id.id):
+                file = fname
+                break
+            else:
+                raise FileNotFoundError("Could not find file")
+
         f = collection.get_file(resource_id.id, file)
         if return_name:
             return f, file
         else:
             return f
+
+    def get_filenames(
+        self,
+        resource_id: ResourceId[IdType, ResourceType],
+    ) -> typing.List[str]:
+        if not resource_id.collection.database in self.databases:
+            self.__open_database(resource_id.collection.database)
+        collection = self.databases[resource_id.collection.database][
+            resource_id.collection.name
+        ]
+        return collection.list_files(resource_id.id)
 
     def get_file_as_class(
         self,

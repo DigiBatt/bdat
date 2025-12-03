@@ -19,8 +19,11 @@ def args_from_stdin(arg_type: typing.Type | click.ParamType, cli_args: tuple):
 
 
 def print_info(text):
-    with open(os.ttyname(2), "w") as f:
-        print(text, file=f)
+    try:
+        with open(os.ttyname(2), "w") as f:
+            print(text, file=f)
+    except:
+        print(text)
 
 
 def print_debug(text):

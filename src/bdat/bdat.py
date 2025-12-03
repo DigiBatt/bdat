@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import pprint
@@ -22,7 +23,7 @@ from bdat.functions.import_tests import import_tests as _import_tests
 from bdat.tools.cli import args_from_stdin, print_info
 from bdat.tools.custom_json_encoder import CustomJSONEncoder
 from bdat.tools.exception import ParallelWorkerException
-from bdat.tools.misc import make_filter, make_getattr
+from bdat.tools.misc import get_storage, make_filter, make_getattr
 from bdat.tools.runner import run_parallel
 
 
@@ -694,27 +695,59 @@ def server(
 @click.argument("test_id", type=ResourceIdParam(entities.Cycling), nargs=-1)
 @click.option("target_folder", "-t", "--target", type=str, required=True)
 @click.option("filename_pattern", "--filename", type=str, default="{id}.parquet")
+@click.option(
+    "include_running", "--include-running", is_flag=True, type=bool, default=False
+)
+@click.option(
+    "delete_running", "--delete-running", is_flag=True, type=bool, default=False
+)
+@click.option("--overwrite", is_flag=True, type=bool, default=False)
 @click.pass_obj
 def download_data(
     obj: Storage,
     test_id: typing.Tuple[ResourceId[str, entities.Cycling]],
     target_folder: str,
     filename_pattern: str,
+    include_running: bool,
+    delete_running: bool,
+    overwrite: bool,
 ):
     n = 0
     for t in args_from_stdin(ResourceIdParam(entities.Cycling), test_id):
         test = obj.get(t)
         if test is None:
             raise Exception(f"Could not find resource with id {t.to_str()}")
-        datafile = obj.get_file(t)
-        if datafile is None:
+        filenames = obj.get_filenames(t)
+        if len(filenames) == 0:
+            print_info(f"Skip {t.to_str()} (no data file)")
             continue
+        filename = filenames[0]
+        root, ext = os.path.splitext(filename)
         target = os.path.join(
             target_folder,
             filename_pattern.format(
-                id=t.to_str(), test=test.title, specimen=test.object.title
+                id=t.id,
+                test=test.title,
+                specimen=test.object.title,
+                parent=test.parent.title if test.parent else "",
+                root=root,
+                ext=ext,
+                startdate=datetime.strftime(test.start, "%Y%m%d"),
             ),
         )
+        if test.end is None and not include_running:
+            print_info(f"Skip {t.to_str()} (still running)")
+            if os.path.exists(target) and delete_running:
+                print_info(f"Delete {t.to_str()} (still running)")
+                os.remove(target)
+            continue
+        if os.path.exists(target) and not overwrite:
+            print_info(f"Skip {t.to_str()} (already exists)")
+            continue
+        datafile = obj.get_file(t, filename)
+        if datafile is None:
+            print_info(f"Skip {t.to_str()} (could not get data)")
+            continue
         with open(target, "wb") as f:
             f.write(datafile.read())
         print(t.to_str())
@@ -1037,15 +1070,44 @@ def update(
 
 
 @main.command("import-fittingdata", help="import data from a fittingdata JSON export")
-@click.argument("file", type=click.File())
+@click.argument("file", type=click.File(), nargs=-1)
 @click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=True)
-@click.option("project_name", "-p", "--project-name", required=True)
+@click.option("--project", "-p", type=ResourceIdParam(entities.Project), required=True)
+@click.option("--species", type=ResourceIdParam(entities.BatterySpecies), required=True)
+@click.option("cellname_filter", "--cellname-filter", required=False)
+@click.option("--replace", is_flag=True, default=False)
+@click.option("list_cells", "--list-cells", is_flag=True, default=False)
+@click.option("--doi", multiple=True)
+@click.option("--cellname-suffix", "cellname_suffix")
 @click.pass_obj
 def import_fittingdata(
-    obj: Storage, file: typing.TextIO, target_id: CollectionId, project_name: str
+    obj: Storage,
+    file: typing.Tuple[typing.TextIO],
+    target_id: CollectionId,
+    project: ResourceId[int, entities.Project],
+    species: ResourceId[int, entities.BatterySpecies],
+    cellname_filter: str | None,
+    replace: bool,
+    list_cells: bool,
+    doi: typing.Tuple[str],
+    cellname_suffix: str | None,
 ):
-    data = json.load(file)
-    result = _import_fittingdata(obj, data, project_name, target_id)
+    data = {"cells": list(itertools.chain(*[json.load(f)["cells"] for f in file]))}
+    if list_cells:
+        for c in data["cells"]:
+            print(c["name"])
+        return
+    result = _import_fittingdata(
+        obj,
+        data,
+        project,
+        species,
+        target_id,
+        cellname_filter,
+        replace,
+        doi,
+        cellname_suffix,
+    )
     print(result)
 
 

@@ -48,10 +48,12 @@ def plot_testeval_details(
                 )
             )
         elif isinstance(e, entities.PulseEval):
+            if e.matchStart:
+                start = e.start - 10
+            else:
+                start = e.start + e.relaxationTime - 10
             charts.append(
-                basechart(
-                    data, (e.start + e.relaxationTime - 10, e.end + 10)
-                ).properties(
+                basechart(data, (start, e.end + 10)).properties(
                     title=f"Pulse (SOC: {format(e.soc, '.3f') if e.soc else 'None'}, current: {e.current:.3f} A, duration: {e.duration:.3f} s, impedance: {abs(e.impedance * 1e3):.3f} mOhm)"
                 )
             )

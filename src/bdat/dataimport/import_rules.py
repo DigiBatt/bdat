@@ -39,7 +39,7 @@ def _get_dataspec(test: entities.Cycling, df) -> DataSpec:
         pass
     try:
         temperatureName = "T1#C1#D" if "T1#C1#D" in df.columns else None
-        spec = BMDataSpec(timeUnit=Unit.MILLI, temperatureName="T1#C1#D")
+        spec = BMDataSpec(timeUnit=Unit.MILLI, temperatureName=temperatureName)
         if spec.tryOnTest(df):
             return spec
     except:
