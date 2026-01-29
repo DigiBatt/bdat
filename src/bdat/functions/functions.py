@@ -11,7 +11,7 @@ import pandas as pd
 
 import bdat.entities as entities
 import bdat.resources.dataspec.bm
-import bdat.steps.find_steps as _find_steps
+import bdat.steps
 from bdat.database.exceptions.database_conflict_exception import (
     DatabaseConflictException,
 )
@@ -38,6 +38,7 @@ from bdat.exceptions import (
 from bdat.patterns import eval_rules
 from bdat.plots.plot import plotfunctions
 from bdat.plots.plot_aging_data import plot_aging_data
+from bdat.plots.plot_celllife import plot_celllife
 from bdat.plots.plot_steps import plot_steps
 from bdat.plots.plot_testevals import plot_testevals
 from bdat.resources.patterns import (
@@ -111,7 +112,7 @@ def steps(
     dataspec = import_rules.get_dataspec(test, df)
     data = CyclingData(test, df, dataspec, 0, 0, None)
     try:
-        steplist = _find_steps.find_steps(data)
+        steplist = bdat.steps.find_steps(data)
         plotdata = plot_steps(storage, steplist, df)
         steplist.plotdata = plotdata.data
         if not test.end:
@@ -1168,30 +1169,30 @@ def cell_life(
             )
             if combined.chargeCurrent is None and combined.chargeCRate is None:
                 combine = False
-                print("1")
+                # print("1")
             if (
                 combined.dischargeCurrent is None
                 and combined.dischargeCRate is None
                 and combined.dischargePower is None
             ):
                 combine = False
-                print("2")
+                # print("2")
             if (
                 combined.minVoltage is None
                 and combined.minSoc is None
                 # and combined.dod is None
             ):
                 combine = False
-                print("3")
+                # print("3")
             if combined.maxVoltage is None and combined.maxSoc is None:
                 combine = False
-                print("4")
+                # print("4")
             if (
                 combined.temperature is None
                 or combined.upperPauseDuration is None
                 or combined.lowerPauseDuration is None
             ):
-                print("5")
+                # print("5")
                 combine = False
             if combine:
                 prev = combined
@@ -1211,6 +1212,9 @@ def cell_life(
         testevals,
         testmatrix=testmatrix,
     )
+
+    plotdata = plot_celllife(storage, result)
+    result.plotdata = plotdata.data
 
     if target_id:
         if isinstance(replace, ResourceId):

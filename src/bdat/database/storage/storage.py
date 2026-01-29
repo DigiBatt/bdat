@@ -21,6 +21,7 @@ from bdat.database.exceptions.missing_attribute_exception import (
 from bdat.database.exceptions.unexpected_value_exception import UnexpectedValueException
 from bdat.database.kadi.database import KadiDatabase
 from bdat.database.storage.entity import (
+    _ENTITY_COLLECTIONS,
     _ENTITY_FILES,
     _ENTITY_IDENTIFIERS,
     EXTENSIONS,
@@ -601,9 +602,11 @@ class Storage:
         d["_id"] = resource.id
         d["__type"] = resource.get_type()
         identifier_pattern = _ENTITY_IDENTIFIERS.get(resource.__class__.__name__, None)
-        # identifier_pattern = getattr(resource.__class__, "_identifier", None)
         if identifier_pattern:
             d["_identifier"] = identifier_pattern
+        collection_sources = _ENTITY_COLLECTIONS.get(resource.__class__.__name__, None)
+        if collection_sources:
+            d["_collections"] = collection_sources
         return d
 
     @staticmethod

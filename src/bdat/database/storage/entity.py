@@ -180,6 +180,7 @@ class Embedded(Entity[int]):
 
 _ENTITY_FILES: "typing.Dict[str, typing.Dict[str, FileSpec]]" = {}
 _ENTITY_IDENTIFIERS = {}
+_ENTITY_COLLECTIONS = {}
 
 
 class Filetype(Enum):
@@ -241,6 +242,16 @@ def identifier(
     def decorator(cls: typing.Type[Entity]) -> typing.Type[Entity]:
         _ENTITY_IDENTIFIERS[cls.__name__] = pattern
         # cls._identifier = pattern
+        return cls
+
+    return decorator
+
+
+def collections(
+    *sources: str,
+) -> typing.Callable[[typing.Type[Entity]], typing.Type[Entity]]:
+    def decorator(cls: typing.Type[Entity]) -> typing.Type[Entity]:
+        _ENTITY_COLLECTIONS[cls.__name__] = sources
         return cls
 
     return decorator

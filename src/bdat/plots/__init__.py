@@ -4,6 +4,7 @@ from .plot_cap import plot_cap
 from .plot_cap_ctrl import plot_cap_ctrl
 from .plot_cap_hist import plot_cap_hist
 from .plot_cap_timeline import plot_cap_timeline
+from .plot_celllife import plot_celllife
 from .plot_eval_data import plot_eval_data
 from .plot_properties_scatter import plot_properties_scatter
 from .plot_pulse_impedance import plot_pulse_impedance

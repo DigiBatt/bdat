@@ -342,6 +342,7 @@ class KadiCollection(Collection):
         doc = self.__unpack_extras(record["extras"])
         doc["id"] = record["id"]
         doc["_type"] = record["type"]
+        doc["_identifier"] = record["identifier"]
         doc["title"] = record["title"]
         links = record.get("links_to", None)
         if links is None:
@@ -391,6 +392,15 @@ class KadiCollection(Collection):
             )[:50]
         else:
             identifier = "bdat-" + str(uuid.uuid4())
+        collection_ids = []
+        if "_collections" in doc:
+            for entry in doc.pop("_collections"):
+                value = doc.get(entry, None)
+                if value is None:
+                    continue
+                for c in self.__request("GET", f"records/{value.id}/collections"):
+                    if c["id"] not in collection_ids:
+                        collection_ids.append(c["id"])
         links = self.__get_links(doc)
         if "_id" in doc:
             doc.pop("_id")
@@ -401,6 +411,7 @@ class KadiCollection(Collection):
             "extras": self.__pack_extras(doc)["value"],
             "type": doctype,
             "links": links,
+            "collections": [{"id": x} for x in collection_ids],
         }
         return record
 
