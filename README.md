@@ -1,7 +1,14 @@
 bdat
 ====
 
-Battery Data Analysis Toolkit
+![Overview](sphinx/images/bdat_test_steps.svg)
+
+The Battery Data Analysis Toolkit (bdat) provides a set of functions that enable the import and analysis of electrical battery data.
+It is designed to interact with a [Kadi4Mat](https://kadi.iam.kit.edu/>) instance, but can also be used as a standalone tool.
+
+Documentation: [sphinx](sphinx)
+
+Examples:  [examples](examples)
 
 Setup
 =====
@@ -20,26 +27,3 @@ Documentation
 The documentation is built using the script
 
     ./build_docs.sh
-
-Configuration
--------------
-
-Configuration parameters can be provided in a JSON file.
-Bdat will try to read the configuration from the following locations, from top to bottom:
-
-- The path that is passed using the -c / --config option, if it is specified.
-- ./config.json
-- ~/.config/bdat/config.json
-
-The config file contains information about the database(s) that bdat interacts with.
-An example config looks like this:
-
-    {
-        "databases": {
-            "kadi": {
-                "type": "kadi",
-                "url": "https://example.org",
-                "token": "pat_xxxxxxxxxxxxx"
-            }
-        }
-    }

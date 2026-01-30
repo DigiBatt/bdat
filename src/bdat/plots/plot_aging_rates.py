@@ -8,8 +8,8 @@ from bdat.plots.plot import plot
 
 @plot("aging_rates")
 def plot_aging_rates(
-    storage: Storage, aging_data: entities.AgingData
-) -> entities.Plotdata:
+    storage: Storage, aging_data: "entities.AgingData"
+) -> "entities.Plotdata":
     if not isinstance(aging_data, entities.AgingData):
         raise Exception("Invalid resource type")
 
@@ -39,7 +39,7 @@ def plot_aging_rates(
     )
 
 
-def __eval_comparator(eval: entities.PatternEval) -> float:
+def __eval_comparator(eval: "entities.PatternEval") -> float:
     if eval.age is None:
         return 0
     return eval.age

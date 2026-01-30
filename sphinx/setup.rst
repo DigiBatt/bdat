@@ -23,7 +23,8 @@ Bdat will try to read the configuration from the following locations, from top t
 - ~/.config/bdat/config.json
 
 The config file contains information about the database(s) that bdat interacts with.
-An example config looks like this:
+It is currently only necessary for using the :ref:`kadi-integration`.
+An example config file looks like this:
 
 .. code-block:: json
 

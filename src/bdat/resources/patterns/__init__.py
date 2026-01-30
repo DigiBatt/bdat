@@ -4,6 +4,7 @@ from .cp_charge_qocv import CPChargeQOCV
 from .cp_discharge_qocv import CPDischargeQOCV
 from .discharge_qocv import DischargeQOCV
 from .eval_pattern import EvalPattern
+from .gitt import GITT
 from .pulse import Pulse
 from .testinfo import Testinfo
 from .uniform_cycling import UniformCycling

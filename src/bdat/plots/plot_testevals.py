@@ -65,6 +65,7 @@ def plot_testevals(
         "UniformCyclingEval",
         "CPChargeQOCVEval",
         "CPDischargeQOCVEval",
+        "GITTEval",
     ]
 
     x = alt.X("time:Q", title="duration / s")

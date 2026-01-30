@@ -18,7 +18,8 @@ It is designed to interact with a `Kadi4Mat <https://kadi.iam.kit.edu/>`__ insta
    setup
    cli
    structure
-   prefect
+   kadi
+   examples
 
 Indices and tables
 ==================

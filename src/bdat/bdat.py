@@ -28,7 +28,7 @@ from bdat.tools.runner import run_parallel
 
 
 @click.group()
-@click.option("-c", "--config", type=click.File())
+@click.option("-c", "--config", type=click.File(), help="Path to a config file")
 @click.option(
     "debug",
     "--debug",
@@ -59,14 +59,16 @@ def main(ctx, config, debug):
         raise Exception("No config file found")
 
 
-@main.command("version", help="print version and exit")
+@main.command("version", help="Print version and exit")
 def version():
     print(get_version())
 
 
-@main.command("exists", help="filter resource ids and keep those that exist")
+@main.command("exists", help="Filter resource ids and return only those that exist")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
 @click.option(
     "invert",
@@ -74,7 +76,7 @@ def version():
     "--invert",
     is_flag=True,
     default=False,
-    help="invert filter to keep ids that do not exist",
+    help="Invert filter to keep ids that do not exist",
 )
 @click.option(
     "ref_field",
@@ -140,12 +142,21 @@ def exists(
     print_info(f"exists: {n} entities")
 
 
-@main.command("testlist", help="list all tests in a testset")
-@click.argument("testset_id", type=ResourceIdParam(entities.ActivitySet), nargs=-1)
-@click.option(
-    "test_collection", "-c", "--collection", type=CollectionIdParam(), required=True
+@main.command("testlist", help="List all tests in a testset")
+@click.argument(
+    "testset_id",
+    type=ResourceIdParam(entities.ActivitySet),
+    nargs=-1,
 )
-@click.option("--ordered", is_flag=True, type=bool, help="order tests by start date")
+@click.option(
+    "test_collection",
+    "-c",
+    "--collection",
+    type=CollectionIdParam(),
+    required=True,
+    help="Collection containing the tests",
+)
+@click.option("--ordered", is_flag=True, type=bool, help="Order tests by start date")
 @click.pass_obj
 def testlist(
     obj: Storage,
@@ -174,7 +185,7 @@ def testlist(
     print_info(f"testlist: {n} tests")
 
 
-@main.command("list", help="list all entities in a collection")
+@main.command("list", help="List all entities in a collection")
 @click.option(
     "collection_id",
     "--collection",
@@ -215,7 +226,7 @@ def list_resources(
     print_info(f"list: {n} entities")
 
 
-@main.command("list-links", help="list all entities linked to by another entity")
+@main.command("list-links", help="List all entities linked to by another entity")
 @click.option(
     "ref_field",
     "--ref-field",
@@ -264,9 +275,20 @@ def list_links(
     print_info(f"list-links: {n} entities")
 
 
-@main.command("steps", help="detect steps in test data")
-@click.argument("test_id", type=ResourceIdParam(entities.Cycling), nargs=-1)
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=False)
+@main.command("steps", help="Detect steps in test data")
+@click.argument(
+    "test_id",
+    type=ResourceIdParam(entities.Cycling),
+    nargs=-1,
+)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=False,
+    help="Collection to store the results",
+)
 @click.option(
     "debug",
     "--debug",
@@ -281,7 +303,7 @@ def list_links(
     type=int,
     required=False,
     default=1,
-    help="number of parallel worker processes",
+    help="Number of parallel worker processes",
 )
 @click.option(
     "replace",
@@ -289,7 +311,7 @@ def list_links(
     type=bool,
     is_flag=True,
     default=False,
-    help="Replace existing documents",
+    help="Overwrite previous results if they already exist",
 )
 @click.pass_obj
 def steps(
@@ -331,16 +353,27 @@ def steps(
     print_info(f"steps: {n} tests")
 
 
-@main.command("patterns", help="detect patterns in test steps")
-@click.argument("steplist_id", type=ResourceIdParam(entities.Steplist), nargs=-1)
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=False)
+@main.command("patterns", help="Detect patterns in test steps")
+@click.argument(
+    "steplist_id",
+    type=ResourceIdParam(entities.Steplist),
+    nargs=-1,
+)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=False,
+    help="Collection to store the results",
+)
 @click.option(
     "--parallel",
     "-p",
     type=int,
     required=False,
     default=1,
-    help="number of parallel worker processes",
+    help="Number of parallel worker processes",
 )
 @click.option(
     "debug",
@@ -353,13 +386,20 @@ def steps(
 @click.option(
     "patterntype",
     "--type",
-    help="only search for one type of pattern",
+    help="Only search for the specified type of pattern",
 )
-@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.option(
+    "replace",
+    "--replace",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
 @click.option(
     "ignore_test",
     "--ignore-test",
-    help="test to ignore when looking for previous tests",
+    help="Tests to ignore when looking for previous tests",
     type=ResourceIdParam(entities.Cycling),
     required=False,
     multiple=True,
@@ -409,16 +449,27 @@ def patterns(
     print_info(f"patterns: {n} steplists")
 
 
-@main.command("battery-patterns", help="detect patterns in all tests of a battery")
-@click.argument("battery_id", type=ResourceIdParam(entities.Battery), nargs=-1)
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=False)
+@main.command("battery-patterns", help="Detect patterns in all tests of a battery")
+@click.argument(
+    "battery_id",
+    type=ResourceIdParam(entities.Battery),
+    nargs=-1,
+)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=False,
+    help="Collection to store the results",
+)
 @click.option(
     "--parallel",
     "-p",
     type=int,
     required=False,
     default=1,
-    help="number of parallel worker processes",
+    help="Number of parallel worker processes",
 )
 @click.option(
     "debug",
@@ -431,13 +482,20 @@ def patterns(
 @click.option(
     "patterntype",
     "--type",
-    help="only search for one type of pattern",
+    help="Only search for the specified type of pattern",
 )
-@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.option(
+    "replace",
+    "--replace",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
 @click.option(
     "ignore_test",
     "--ignore-test",
-    help="test to ignore when looking for previous tests",
+    help="Tests to ignore when looking for previous tests",
     type=ResourceIdParam(entities.Cycling),
     required=False,
     multiple=True,
@@ -448,6 +506,7 @@ def patterns(
     is_flag=True,
     type=bool,
     default=False,
+    help="Ignore tests that have no test steps",
 )
 @click.pass_obj
 def battery_patterns(
@@ -497,12 +556,14 @@ def battery_patterns(
     print_info(f"patterns: {n} specimen")
 
 
-@main.command("show", help="print resource")
+@main.command("show", help="Print resource")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
 @click.option(
-    "--attr", type=str, help="attribute to print instead of the whole resource"
+    "--attr", type=str, help="Attribute to print instead of the whole resource"
 )
 @click.pass_obj
 def show(
@@ -520,11 +581,20 @@ def show(
             pprint.pprint(obj.get_as_doc(r))
 
 
-@main.command("copy", help="print resource to other collection")
+@main.command("copy", help="Copy resource to other collection")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=True)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=True,
+    help="Target collection id",
+)
 @click.pass_obj
 def copy(
     obj: Storage,
@@ -539,7 +609,7 @@ def copy(
         print(new_id.to_str())
 
 
-@main.command("show-testsets", help="print an overview of testsets in the database")
+@main.command("show-testsets", help="Show an overview of testsets in the database")
 @click.argument("collection_id", type=CollectionIdParam())
 @click.pass_obj
 def show_testsets(
@@ -555,14 +625,16 @@ def show_testsets(
         print(name)
 
 
-@main.command("delete", help="delete resource from database")
+@main.command("delete", help="Delete resource from database")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
 @click.option(
     "--data",
     type=str,
-    help="field name that stores a reference to a file that should also be deleted",
+    help="Field name that stores a reference to a file that should also be deleted",
 )
 @click.pass_obj
 def delete(
@@ -593,8 +665,11 @@ def delete(
     print_info(f"delete: {n} entities")
 
 
-@main.command("columns", help="print test columns")
-@click.argument("resource_id", type=ResourceIdParam(entities.Cycling))
+@main.command("columns", help="Print test columns")
+@click.argument(
+    "resource_id",
+    type=ResourceIdParam(entities.Cycling),
+)
 @click.pass_obj
 def columns(
     obj: Storage,
@@ -608,20 +683,37 @@ def columns(
         #     print(c)
 
 
-@main.command("plot", help="plot resource")
+@main.command("plot", help="Create plots for resources")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=False)
-@click.option("to_parquet", "--to-parquet", type=str, required=False)
-@click.option("plot_type", "--type", type=str, required=True)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=False,
+    help="Collection to store the results",
+)
+@click.option(
+    "to_parquet",
+    "--to-parquet",
+    type=str,
+    required=False,
+    help="Save plotted data to a parquet file",
+)
+@click.option(
+    "plot_type", "--type", type=str, required=True, help="Type of plot to create"
+)
 @click.option(
     "--parallel",
     "-p",
     type=int,
     required=False,
     default=1,
-    help="number of parallel worker processes",
+    help="Number of parallel worker processes",
 )
 @click.option(
     "debug",
@@ -631,7 +723,14 @@ def columns(
     default=False,
     help="Raise any exceptions that occur during the evaluation",
 )
-@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
+@click.option(
+    "replace",
+    "--replace",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
 @click.pass_obj
 def plot(
     obj: Storage,
@@ -676,9 +775,9 @@ def plot(
     print_info(f"plot: {n} entities")
 
 
-@main.command("server", help="launch web server to view plots")
-@click.option("-p", "--port", type=int, default=5000)
-@click.option("-h", "--host", type=str, default="localhost")
+@main.command("server", help="Launch a web server to view plots from the database")
+@click.option("-p", "--port", type=int, default=5000, help="Port to listen on")
+@click.option("-h", "--host", type=str, default="localhost", help="Host to bind to")
 @click.pass_obj
 def server(
     obj: Storage,
@@ -691,17 +790,50 @@ def server(
     bdat.server.app.run(host, port)
 
 
-@main.command("download-data", help="save test data to local files")
-@click.argument("test_id", type=ResourceIdParam(entities.Cycling), nargs=-1)
-@click.option("target_folder", "-t", "--target", type=str, required=True)
-@click.option("filename_pattern", "--filename", type=str, default="{id}.parquet")
-@click.option(
-    "include_running", "--include-running", is_flag=True, type=bool, default=False
+@main.command("download-data", help="Save test data to local files")
+@click.argument(
+    "test_id",
+    type=ResourceIdParam(entities.Cycling),
+    nargs=-1,
 )
 @click.option(
-    "delete_running", "--delete-running", is_flag=True, type=bool, default=False
+    "target_folder",
+    "-t",
+    "--target",
+    type=str,
+    required=True,
+    help="Folder that the data will be stored in",
 )
-@click.option("--overwrite", is_flag=True, type=bool, default=False)
+@click.option(
+    "filename_pattern",
+    "--filename",
+    type=str,
+    default="{id}.parquet",
+    help="Format string that is used to create filenames for the data files. Available replacements are {id}, {test}, {specimen}, {parent}, {root}, {ext}, and {startdate}.",
+)
+@click.option(
+    "include_running",
+    "--include-running",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Include tests that are still running",
+)
+@click.option(
+    "delete_running",
+    "--delete-running",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Delete previously downloaded data files for tests that are still running",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite existing files",
+)
 @click.pass_obj
 def download_data(
     obj: Storage,
@@ -755,11 +887,20 @@ def download_data(
     print_info(f"download-data: {n} tests")
 
 
-@main.command("download", help="save entities to local files")
+@main.command("download", help="Save resources to local files")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
-@click.option("target_folder", "-t", "--target", type=str, required=True)
+@click.option(
+    "target_folder",
+    "-t",
+    "--target",
+    type=str,
+    required=True,
+    help="Folder that the data will be stored in",
+)
 @click.pass_obj
 def download(
     obj: Storage,
@@ -778,51 +919,117 @@ def download(
     print_info(f"download: {n} entities")
 
 
-@main.command("evalgroup", help="group eval results by common linked entities")
+@main.command("evalgroup", help="Group testevals based on given criteria")
 @click.argument(
-    "res_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "res_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
-@click.option("target_id", "-t", "--target", type=CollectionIdParam())
-@click.option("collection_id", "-c", "--collection", type=CollectionIdParam())
-@click.option("testset_id", "--testset", type=ResourceIdParam(entities.ActivitySet))
-@click.option("project_id", "--project", type=ResourceIdParam(entities.Project))
-@click.option("species_id", "--species", type=ResourceIdParam(entities.BatterySpecies))
-@click.option("specimen_id", "--specimen", type=ResourceIdParam(entities.Battery))
-@click.option("test_id", "--test", type=ResourceIdParam(entities.Cycling))
-@click.option("evaltype", "--type", type=str)
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    help="Collection to store the results",
+)
+@click.option(
+    "collection_id",
+    "-c",
+    "--collection",
+    type=CollectionIdParam(),
+    help="Collection that contains the testeval resources",
+)
+@click.option(
+    "testset_id",
+    "--testset",
+    type=ResourceIdParam(entities.ActivitySet),
+    help="Filter resources by testset",
+)
+@click.option(
+    "project_id",
+    "--project",
+    type=ResourceIdParam(entities.Project),
+    help="Filter resources by project",
+)
+@click.option(
+    "species_id",
+    "--species",
+    type=ResourceIdParam(entities.BatterySpecies),
+    help="Filter resources by species",
+)
+@click.option(
+    "specimen_id",
+    "--specimen",
+    type=ResourceIdParam(entities.Battery),
+    help="Filter resources by specimen",
+)
+@click.option(
+    "test_id",
+    "--test",
+    type=ResourceIdParam(entities.Cycling),
+    help="Filter resources by test",
+)
+@click.option(
+    "evaltype",
+    "--type",
+    type=str,
+    help="Only include resources that contain an evaluation of this type",
+)
 @click.option(
     "unique",
     "--unique",
     type=str,
-    help="'first' or 'last', keep only first/last eval with the same links and type",
+    help="Can be 'first' or 'last'. Keep only first/last testeval with the same properties specified by --unique-link and --unique-key",
 )
 @click.option(
     "unique_link",
     "--unique-link",
     multiple=True,
-    help="linked entity that is used to find unique evals",
+    help="Linked entity that is used to find unique evals",
 )
 @click.option(
     "unique_key",
     "--unique-key",
     multiple=True,
-    help="eval attribute that is used to find unique evals",
+    help="Testeval attribute that is used to find unique evals",
 )
 @click.option(
     "filter",
     "--filter",
     multiple=True,
-    help="eval attribute that is used to filter the results",
+    help="Eval attribute that is used to filter the results",
 )
 @click.option(
     "exclude_tests",
-    "--exclude-test",
+    "--exclude-tests",
     multiple=True,
+    help="Resource ids of tests that should be excluded",
 )
-@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
-@click.option("before", "--before", type=click.DateTime(), default=None)
-@click.option("after", "--after", type=click.DateTime(), default=None)
-@click.option("title", "--title", type=str, required=False)
+@click.option(
+    "replace",
+    "--replace",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
+@click.option(
+    "before",
+    "--before",
+    type=click.DateTime(),
+    default=None,
+    help="Only include testevals for tests before this date",
+)
+@click.option(
+    "after",
+    "--after",
+    type=click.DateTime(),
+    default=None,
+    help="Only include testevals for tests after this date",
+)
+@click.option(
+    "title", "--title", type=str, required=False, help="Title for the created resource"
+)
 @click.pass_obj
 def evalgroup(
     obj: Storage,
@@ -870,51 +1077,112 @@ def evalgroup(
     print(result)
 
 
-@main.command("testgroup", help="group tests by common linked entities")
+@main.command("testgroup", help="Group tests based on given criteria")
 @click.argument(
-    "res_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "res_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
-@click.option("target_id", "-t", "--target", type=CollectionIdParam())
-@click.option("collection_id", "-c", "--collection", type=CollectionIdParam())
-@click.option("testset_id", "--testset", type=ResourceIdParam(entities.ActivitySet))
-@click.option("project_id", "--project", type=ResourceIdParam(entities.Project))
-@click.option("species_id", "--species", type=ResourceIdParam(entities.BatterySpecies))
-@click.option("specimen_id", "--specimen", type=ResourceIdParam(entities.Battery))
-@click.option("test_id", "--test", type=ResourceIdParam(entities.Cycling))
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    help="Collection to store the results",
+)
+@click.option(
+    "collection_id",
+    "-c",
+    "--collection",
+    type=CollectionIdParam(),
+    help="Collection that contains the tests",
+)
+@click.option(
+    "testset_id",
+    "--testset",
+    type=ResourceIdParam(entities.ActivitySet),
+    help="Filter resources by testset",
+)
+@click.option(
+    "project_id",
+    "--project",
+    type=ResourceIdParam(entities.Project),
+    help="Filter resources by project",
+)
+@click.option(
+    "species_id",
+    "--species",
+    type=ResourceIdParam(entities.BatterySpecies),
+    help="Filter resources by species",
+)
+@click.option(
+    "specimen_id",
+    "--specimen",
+    type=ResourceIdParam(entities.Battery),
+    help="Filter resources by specimen",
+)
+@click.option(
+    "test_id",
+    "--test",
+    type=ResourceIdParam(entities.Cycling),
+    help="Filter resources by test",
+)
 @click.option("evaltype", "--type", type=str)
 @click.option(
     "unique",
     "--unique",
     type=str,
-    help="'first' or 'last', keep only first/last eval with the same links and type",
+    help="Can be 'first' or 'last'. Keep only first/last test with the same properties specified by --unique-link and --unique-key",
 )
 @click.option(
     "unique_link",
     "--unique-link",
     multiple=True,
-    help="linked entity that is used to find unique evals",
+    help="Linked entity that is used to find unique tests",
 )
 @click.option(
     "unique_key",
     "--unique-key",
     multiple=True,
-    help="eval attribute that is used to find unique evals",
+    help="Testeval attribute that is used to find unique tests",
 )
 @click.option(
     "filter",
     "--filter",
     multiple=True,
-    help="eval attribute that is used to filter the results",
+    help="Test attribute that is used to filter the results",
 )
 @click.option(
     "exclude_tests",
-    "--exclude-test",
+    "--exclude-tests",
     multiple=True,
+    help="Resource ids of tests that should be excluded",
 )
-@click.option("replace", "--replace", is_flag=True, type=bool, default=False)
-@click.option("before", "--before", type=click.DateTime(), default=None)
-@click.option("after", "--after", type=click.DateTime(), default=None)
-@click.option("title", "--title", type=str, required=False)
+@click.option(
+    "replace",
+    "--replace",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
+@click.option(
+    "before",
+    "--before",
+    type=click.DateTime(),
+    default=None,
+    help="Only include testevals for tests before this date",
+)
+@click.option(
+    "after",
+    "--after",
+    type=click.DateTime(),
+    default=None,
+    help="Only include testevals for tests after this date",
+)
+@click.option(
+    "title", "--title", type=str, required=False, help="Title for the created resource"
+)
 @click.pass_obj
 def testgroup(
     obj: Storage,
@@ -962,19 +1230,43 @@ def testgroup(
     print(result)
 
 
-@main.command("download-plotdata", help="save plot data to local CSV files")
-@click.argument("plot_id", type=ResourceIdParam(entities.plots.Plotdata), nargs=-1)
-@click.option("filename_pattern", "--filename", type=str, default="-")
+@main.command("download-plotdata", help="Save plot data to local files")
+@click.argument(
+    "plot_id",
+    type=ResourceIdParam(entities.plots.Plotdata),
+    nargs=-1,
+)
+@click.option(
+    "filename_pattern",
+    "--filename",
+    type=str,
+    default="-",
+    help="Format string that determines the names of the files that are created",
+)
 @click.option(
     "columnlist",
     "--columns",
     type=str,
-    help="comma-separated list of columns to download",
+    help="Comma-separated list of columns to download",
 )
-@click.option("sort", "--sort", type=str)
-@click.option("dataset", "--dataset", type=str, required=True)
-@click.option("filter", "--filter", type=str, multiple=True)
-@click.option("format", "--format", type=str, default="csv")
+@click.option("sort", "--sort", type=str, help="Sort data by the specified column")
+@click.option(
+    "dataset",
+    "--dataset",
+    type=str,
+    required=True,
+    help="Name of the dataset to download",
+)
+@click.option(
+    "filter", "--filter", type=str, multiple=True, help="Filter data that is downloaded"
+)
+@click.option(
+    "format",
+    "--format",
+    type=str,
+    default="csv",
+    help="Format of the data files. Can be csv or parquet.",
+)
 @click.pass_obj
 def download_plotdata(
     obj: Storage,
@@ -1022,9 +1314,11 @@ def download_plotdata(
     print_info(f"download-plotdata: {n} files")
 
 
-@main.command("update", help="update resource")
+@main.command("update", help="Update resource")
 @click.argument(
-    "resource_id", type=ResourceIdParam(bdat.database.storage.entity.Entity), nargs=-1
+    "resource_id",
+    type=ResourceIdParam(bdat.database.storage.entity.Entity),
+    nargs=-1,
 )
 @click.option(
     "--parallel",
@@ -1032,7 +1326,7 @@ def download_plotdata(
     type=int,
     required=False,
     default=1,
-    help="number of parallel worker processes",
+    help="Number of parallel worker processes",
 )
 @click.option(
     "debug",
@@ -1069,16 +1363,58 @@ def update(
     print_info(f"update: {n} resources")
 
 
-@main.command("import-fittingdata", help="import data from a fittingdata JSON export")
+@main.command(
+    "import-fittingdata", help="Import aging data from a fittingdata JSON export"
+)
 @click.argument("file", type=click.File(), nargs=-1)
-@click.option("target_id", "-t", "--target", type=CollectionIdParam(), required=True)
-@click.option("--project", "-p", type=ResourceIdParam(entities.Project), required=True)
-@click.option("--species", type=ResourceIdParam(entities.BatterySpecies), required=True)
-@click.option("cellname_filter", "--cellname-filter", required=False)
-@click.option("--replace", is_flag=True, default=False)
-@click.option("list_cells", "--list-cells", is_flag=True, default=False)
-@click.option("--doi", multiple=True)
-@click.option("--cellname-suffix", "cellname_suffix")
+@click.option(
+    "target_id",
+    "-t",
+    "--target",
+    type=CollectionIdParam(),
+    required=True,
+    help="Collection to store the results",
+)
+@click.option(
+    "--project",
+    "-p",
+    type=ResourceIdParam(entities.Project),
+    required=True,
+    help="Project that the results will be linked to",
+)
+@click.option(
+    "--species",
+    type=ResourceIdParam(entities.BatterySpecies),
+    required=True,
+    help="Species that the created cells will be linked to",
+)
+@click.option(
+    "cellname_filter",
+    "--cellname-filter",
+    required=False,
+    help="Only import data for cells with names that match the given regex",
+)
+@click.option(
+    "--replace",
+    is_flag=True,
+    default=False,
+    help="Overwrite previous results if they already exist",
+)
+@click.option(
+    "list_cells",
+    "--list-cells",
+    is_flag=True,
+    default=False,
+    help="Only list all cellnames from the data files instead of importing anything",
+)
+@click.option(
+    "--doi", multiple=True, help="DOI of a publication linked to the given data"
+)
+@click.option(
+    "--cellname-suffix",
+    "cellname_suffix",
+    help="Suffix to add to the names of created cells",
+)
 @click.pass_obj
 def import_fittingdata(
     obj: Storage,
@@ -1111,7 +1447,7 @@ def import_fittingdata(
     print(result)
 
 
-@main.command("import-tests", help="import tests from data files")
+@main.command("import-tests", help="Import tests from data files")
 @click.option("--project", "-p", type=ResourceIdParam(entities.Project), required=True)
 @click.option("--set", type=ResourceIdParam(entities.ActivitySet), required=True)
 @click.option("--circuit", type=ResourceIdParam(entities.CyclerCircuit), required=True)
