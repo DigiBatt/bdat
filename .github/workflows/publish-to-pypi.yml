@@ -1,6 +1,8 @@
 name: Build Python package and publish on PyPI
 
-on: [release]
+on:
+  relase:
+    types: [published]
 
 jobs:
   # Build job
