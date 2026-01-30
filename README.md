@@ -6,7 +6,7 @@ bdat
 The Battery Data Analysis Toolkit (bdat) provides a set of functions that enable the import and analysis of electrical battery data.
 It is designed to interact with a [Kadi4Mat](https://kadi.iam.kit.edu/>) instance, but can also be used as a standalone tool.
 
-Documentation: [sphinx](sphinx)
+Documentation: https://digibatt.github.io/bdat
 
 Examples:  [examples](examples)
 

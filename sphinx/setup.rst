@@ -16,14 +16,14 @@ Configuration
 -------------
 
 Configuration parameters can be provided in a JSON file.
+The config file contains information about the database(s) that bdat interacts with.
+It is currently only necessary for using the :ref:`kadi-integration`.
 Bdat will try to read the configuration from the following locations, from top to bottom:
 
 - The path that is passed using the -c / --config option, if it is specified.
 - ./config.json
 - ~/.config/bdat/config.json
 
-The config file contains information about the database(s) that bdat interacts with.
-It is currently only necessary for using the :ref:`kadi-integration`.
 An example config file looks like this:
 
 .. code-block:: json
