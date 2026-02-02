@@ -13,6 +13,10 @@ Examples:  [examples](examples)
 Setup
 =====
 
+The Python package is available on [PyPI](https://pypi.org/project/bdat/) and can be installed using pip:
+
+    pip install bdat
+
 Installation
 ------------
 
