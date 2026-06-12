@@ -386,25 +386,23 @@ class Storage:
         resource.set_res_id(res_id)
         for f in files.values():
             if f.explode:
+                if file_values[f.attrname] is None:
+                    continue
                 for key, value in file_values[f.attrname].items():
+                    filename = f.filename.format(key=key)
+                    if not "." in filename:
+                        filename += "." + EXTENSIONS[f.filetype]
                     content = self.__file_to_buffer(f, value)
-                    self.put_file(
-                        res_id,
-                        content,
-                        f.filename.format(key=key) + "." + EXTENSIONS[f.filetype],
-                        MIMETYPES[f.filetype],
-                    )
+                    self.put_file(res_id, content, filename, MIMETYPES[f.filetype])
             else:
                 value = file_values[f.attrname]
                 if value is None:
                     continue
+                filename = f.filename
+                if not "." in filename:
+                    filename += "." + EXTENSIONS[f.filetype]
                 content = self.__file_to_buffer(f, value)
-                self.put_file(
-                    res_id,
-                    content,
-                    f.filename + "." + EXTENSIONS[f.filetype],
-                    MIMETYPES[f.filetype],
-                )
+                self.put_file(res_id, content, filename, MIMETYPES[f.filetype])
         return res_id  # type: ignore
 
     def exists(self, resource_id: ResourceId[IdType, ResourceType]) -> bool:
@@ -464,25 +462,23 @@ class Storage:
         )
         for f in files.values():
             if f.explode:
+                if file_values[f.attrname] is None:
+                    continue
                 for key, value in file_values[f.attrname].items():
+                    filename = f.filename.format(key=key)
+                    if not "." in filename:
+                        filename += "." + EXTENSIONS[f.filetype]
                     content = self.__file_to_buffer(f, value)
-                    self.put_file(
-                        res_id,
-                        content,
-                        f.filename.format(key=key) + "." + EXTENSIONS[f.filetype],
-                        MIMETYPES[f.filetype],
-                    )
+                    self.put_file(res_id, content, filename, MIMETYPES[f.filetype])
             else:
                 value = file_values[f.attrname]
                 if value is None:
                     continue
+                filename = f.filename
+                if not "." in filename:
+                    filename += "." + EXTENSIONS[f.filetype]
                 content = self.__file_to_buffer(f, value)
-                self.put_file(
-                    res_id,
-                    content,
-                    f.filename + "." + EXTENSIONS[f.filetype],
-                    MIMETYPES[f.filetype],
-                )
+                self.put_file(res_id, content, filename, MIMETYPES[f.filetype])
         return ResourceId(res_id.collection, res_id.id, resource.__class__)
 
     def __resolve_refs(
@@ -706,6 +702,10 @@ class Storage:
         match file.filetype:
             case Filetype.JSON:
                 if isinstance(value, pd.DataFrame):
+                    try:
+                        value = value.fillna(None, axis=1)
+                    except ValueError:
+                        pass
                     value = value.to_dict(orient="records")
                 buffer = io.StringIO()
                 json.dump(value, buffer, cls=CustomJSONEncoder, allow_nan=False)
@@ -721,7 +721,9 @@ class Storage:
                 if not isinstance(value, pd.DataFrame):
                     raise Exception("Content of CSV file must be a dataframe")
                 buffer = io.BytesIO()
-                value.to_csv(index=False)
+                value.to_csv(buffer, index=False)
+            case Filetype.TEXT:
+                buffer = io.BytesIO(value.encode())
             case _:
                 raise Exception("Unknown file type")
 
@@ -741,7 +743,7 @@ class Storage:
         elif ext == EXTENSIONS[Filetype.CSV]:
             return pd.read_csv(buffer)
         else:
-            raise Exception("Unknown file type")
+            return buffer.read()
 
     def get_link(self, resource_id: ResourceId[IdType, ResourceType]) -> str:
         if not resource_id.collection.database in self.databases:

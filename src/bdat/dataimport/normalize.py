@@ -3,12 +3,14 @@ import typing
 import pandas as pd
 
 from bdat.entities.dataspec.column_spec import ColumnSpec, TimeColumnSpec
-from bdat.entities.dataspec.data_spec import DataSpec
+from bdat.entities.dataspec.data_spec import CyclingDataSpec
 from bdat.resources.dataspec.target_spec import DefaultTargetSpec
 
 
 def normalize(
-    df: pd.DataFrame, sourceSpec: DataSpec, targetSpec: DataSpec = DefaultTargetSpec
+    df: pd.DataFrame,
+    sourceSpec: CyclingDataSpec,
+    targetSpec: CyclingDataSpec = DefaultTargetSpec,
 ) -> pd.DataFrame:
     return pd.concat(
         [

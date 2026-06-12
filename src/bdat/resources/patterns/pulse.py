@@ -152,6 +152,19 @@ class Pulse(EvalPattern):
                     duration += step.duration
                     start = min(start, step.start)
 
+        temperatureWeights = [
+            0 if s.temperatureMean is None else (s.duration or 1) for s in steps
+        ]
+        temperatureValues = [
+            0 if s.temperatureMean is None else s.temperatureMean for s in steps
+        ]
+        if sum(temperatureWeights) == 0:
+            temperature = None
+        else:
+            temperature = np.average(
+                temperatureValues, weights=temperatureWeights
+            ).item()
+
         return PulseEval(
             start=start,
             end=end,
@@ -171,4 +184,5 @@ class Pulse(EvalPattern):
             starttime=(
                 test.start + datetime.timedelta(seconds=start) if test.start else None
             ),
+            temperature=temperature,
         )

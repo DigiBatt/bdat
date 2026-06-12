@@ -6,6 +6,8 @@ from .cell import OpenCircuitPotential as opencircuitpotential
 from .data_processing import DataProcessing as dataprocessing
 from .group import EvalGroup as evalgroup
 from .group import TestGroup as testgroup
+from .model import EquivalentCircuitModel as equivalentcircuitmodel
 from .patterns import TestEval as testeval
 from .plots import Plotdata as plotdata
 from .steps import Steplist as steplist
+from .test import Testplan as testplan

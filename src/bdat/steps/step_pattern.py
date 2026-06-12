@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 
 import bdat.steps.steplist_pattern as steplist_pattern
-from bdat.entities.steps.step import CCStep, CPStep, CVStep, Pause, Step
+from bdat.entities.steps.step import CCStep, CPStep, CVStep, CyclingStep, Pause, Step
 
 
 class StepPattern(steplist_pattern.SteplistPattern, ABC):
@@ -262,14 +262,14 @@ class PauseProperties(StepPattern):
 
 
 class StepProperties(StepPattern):
-    stepType: type[Step] | None
+    stepType: type[CyclingStep] | None
     duration: Tuple[float, float] | None
     current: Tuple[float, float] | None
     voltage: Tuple[float, float] | None
 
     def __init__(
         self,
-        stepType: type[Step] | None = None,
+        stepType: type[CyclingStep] | None = None,
         duration: Tuple[float, float] | None = None,
         current: Tuple[float, float] | None = None,
         voltage: Tuple[float, float] | None = None,

@@ -4,7 +4,9 @@ from .cp_discharge_qocv_eval import CPDischargeQOCVEval
 from .cycling_eval import CyclingEval
 from .discharge_capacity_eval import DischargeCapacityEval
 from .discharge_qocv_eval import DischargeQOCVEval
+from .eis_eval import EISEval
 from .error_eval import ErrorEval
+from .full_charge_eval import FullChargeEval
 from .gitt_eval import GITTEval
 from .pattern_eval import PatternEval
 from .pulse_eval import PulseEval

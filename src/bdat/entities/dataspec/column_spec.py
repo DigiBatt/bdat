@@ -29,6 +29,8 @@ class TimeColumnSpec:
     timeFormat: TimeFormat
 
     def convert(self, values: np.ndarray, target: Self) -> np.ndarray:
+        if self.timeFormat == target.timeFormat:
+            return values
         if not isinstance(target.timeFormat, Seconds):
             raise NotImplementedError()
         return self.timeFormat.toSeconds(values)

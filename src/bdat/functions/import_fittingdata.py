@@ -201,6 +201,7 @@ def import_fittingdata(
                 matchStart=timestamp,
                 matchEnd=timestamp,
                 starttime=date,
+                temperature=None,
             )
             pulsetests.append(pulsetest)
         cellLife = entities.CellLife(

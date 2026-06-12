@@ -17,3 +17,4 @@ class PulseEval(PatternEval):
     endVoltage: float
     impedance: float
     soc: float | None
+    temperature: float | None

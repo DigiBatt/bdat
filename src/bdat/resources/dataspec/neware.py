@@ -1,14 +1,43 @@
+import typing
+
 import pandas as pd
 
 import bdat.entities as entities
 from bdat.entities.dataspec.charge_spec import Calculate, ChargeSpec, SeparateColumns
 from bdat.entities.dataspec.column_spec import ColumnSpec, TimeColumnSpec
-from bdat.entities.dataspec.data_spec import DataSpec
+from bdat.entities.dataspec.data_spec import CyclingDataSpec
 from bdat.entities.dataspec.time_format import Timestamp
 
 
-class NewareAhjoDataSpec(DataSpec):
-    def __init__(self, test: entities.Cycling, df: pd.DataFrame):
+class NewareAhjoDataSpec(CyclingDataSpec):
+    def __init__(
+        self,
+        timeName: str,
+        currentName: str,
+        voltageName: str,
+        chargeName: str | None,
+        dischargeName: str | None,
+    ):
+        timeColumn = TimeColumnSpec(timeName, Timestamp())
+        currentColumn = ColumnSpec(currentName)
+        voltageColumn = ColumnSpec(voltageName)
+        if chargeName and dischargeName:
+            chargeColumn: ChargeSpec = SeparateColumns(
+                ColumnSpec(chargeName), ColumnSpec(dischargeName)
+            )
+        else:
+            chargeColumn = Calculate(currentColumn, timeColumn)
+        super().__init__(
+            "neware_ahjo",
+            timeColumn,
+            timeColumn,
+            currentColumn,
+            voltageColumn,
+            chargeColumn,
+        )
+
+    @classmethod
+    def from_df(cls, df: pd.DataFrame) -> "NewareAhjoDataSpec":
         # TODO: check if temperature column exists in aux data
         timeName = None
         currentName = None
@@ -34,19 +63,6 @@ class NewareAhjoDataSpec(DataSpec):
                 dischargeName = col
         if not (timeName and currentName and voltageName):
             raise RuntimeError("Could not find Neware column names")
-        timeColumn = TimeColumnSpec(timeName, Timestamp())
-        currentColumn = ColumnSpec(currentName)
-        voltageColumn = ColumnSpec(voltageName)
-        if chargeName and dischargeName:
-            chargeColumn: ChargeSpec = SeparateColumns(
-                ColumnSpec(chargeName), ColumnSpec(dischargeName)
-            )
-        else:
-            chargeColumn = Calculate(currentColumn, timeColumn)
-        super().__init__(
-            "neware_ahjo",
-            timeColumn,
-            currentColumn,
-            voltageColumn,
-            chargeColumn,
+        return NewareAhjoDataSpec(
+            timeName, currentName, voltageName, chargeName, dischargeName
         )

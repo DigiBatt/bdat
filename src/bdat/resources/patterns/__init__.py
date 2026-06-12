@@ -3,7 +3,9 @@ from .charge_qocv import ChargeQOCV
 from .cp_charge_qocv import CPChargeQOCV
 from .cp_discharge_qocv import CPDischargeQOCV
 from .discharge_qocv import DischargeQOCV
+from .eis import EIS
 from .eval_pattern import EvalPattern
+from .full_charge import FullCharge
 from .gitt import GITT
 from .pulse import Pulse
 from .testinfo import Testinfo

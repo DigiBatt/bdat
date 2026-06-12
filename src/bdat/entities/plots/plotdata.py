@@ -7,7 +7,7 @@ import pandas as pd
 from bson import ObjectId
 
 from altair import Chart  # type: ignore
-from bdat.database.storage.entity import Entity, Filetype, file, identifier
+from bdat.database.storage.entity import Entity, Filetype, collections, file, identifier
 from bdat.entities.data_processing import DataProcessing
 
 
@@ -18,6 +18,7 @@ def default_dict_factory() -> dict | dict:
 @file("data", "plotdata_{key}", Filetype.JSON, explode=True)
 @file("plot", "plot", Filetype.JSON)
 @identifier("bdat-plot-{plottype}-{resource.id}")
+@collections("resource")
 @dataclass
 class Plotdata(DataProcessing):
     id: ObjectId | None = field(init=False)

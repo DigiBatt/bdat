@@ -1,7 +1,7 @@
 pytest==7.2.2
 pytest-cov==4.0.0
 parse==1.19.0
-pandas==2.2.2
+pandas>=2.2.3
 mypy>=1.18.2
 pandas-stubs
 altair==5.1.2
@@ -19,3 +19,4 @@ sphinx-click==6.0.0
 types-ratelimit
 types-requests
 types-python-dateutil
+types-pytz

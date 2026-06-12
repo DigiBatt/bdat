@@ -14,15 +14,14 @@ class Step(Embedded):
     rowEnd: int  #: last row in the test data that belongs to this step, exclusive
     duration: float  #: duration of this step in seconds
     charge: float  #: charge transferred during this step in Ah, charge is positive, discharge is negative
+    startTime: float | None  #: start time of the step as unix timestamp in seconds
+    endTime: float | None  #: end time of the step as unix timestamp in seconds
 
     temperatureStart: float | None = None  #: temperature at the start of the step in °C
     temperatureEnd: float | None = None  #: temperature at the end of the step in °C
     temperatureMin: float | None = None  #: minimum temperature during the step in °C
     temperatureMax: float | None = None  #: maximum temperature during the step in °C
     temperatureMean: float | None = None  #: mean temperature during the step in °C
-
-    maxError: float | None = None
-    rmse: float | None = None
 
     socStart: float | None = field(
         init=False, default=None
@@ -51,6 +50,36 @@ class Step(Embedded):
     capacity: float | None = field(
         init=False, default=None
     )  #: capacity of the battery measured in the last capacity test before this step in Ah
+
+    def asCC(self) -> "CCStep":
+        """Returns this step as a *CCStep*. Raises a *RuntimeError* if the step is of another steptype."""
+        if isinstance(self, CCStep):
+            return self
+        raise RuntimeError("Not a CC step")
+
+    def asCV(self) -> "CVStep":
+        """Returns this step as a *CVStep*. Raises a *RuntimeError* if the step is of another steptype."""
+        if isinstance(self, CVStep):
+            return self
+        raise RuntimeError("Not a CV step")
+
+    def asCP(self) -> "CPStep":
+        """Returns this step as a *CPStep*. Raises a *RuntimeError* if the step is of another steptype."""
+        if isinstance(self, CPStep):
+            return self
+        raise RuntimeError("Not a CP step")
+
+    def asPause(self) -> "Pause":
+        """Returns this step as a *Pause*. Raises a *RuntimeError* if the step is of another steptype."""
+        if isinstance(self, Pause):
+            return self
+        raise RuntimeError("Not a pause step")
+
+    def asEIS(self) -> "EISStep":
+        """Returns this step as a *EISStep*. Raises a *RuntimeError* if the step is of another steptype."""
+        if isinstance(self, EISStep):
+            return self
+        raise RuntimeError("Not a EIS step")
 
     def getStartVoltage(self) -> float:
         """Returns the voltage at the start of this step in V."""
@@ -88,47 +117,29 @@ class Step(Embedded):
             return 0
         raise NotImplementedError()
 
-    def asCC(self) -> "CCStep":
-        """Returns this step as a *CCStep*. Raises a *RuntimeError* if the step is of another steptype."""
-        if isinstance(self, CCStep):
-            return self
-        raise RuntimeError("Not a CC step")
 
-    def asCV(self) -> "CVStep":
-        """Returns this step as a *CVStep*. Raises a *RuntimeError* if the step is of another steptype."""
-        if isinstance(self, CVStep):
-            return self
-        raise RuntimeError("Not a CV step")
-
-    def asCP(self) -> "CPStep":
-        """Returns this step as a *CPStep*. Raises a *RuntimeError* if the step is of another steptype."""
-        if isinstance(self, CPStep):
-            return self
-        raise RuntimeError("Not a CP step")
-
-    def asPause(self) -> "Pause":
-        """Returns this step as a *Pause*. Raises a *RuntimeError* if the step is of another steptype."""
-        if isinstance(self, Pause):
-            return self
-        raise RuntimeError("Not a pause step")
+@dataclass
+class CyclingStep(Step):
+    maxError: float | None = None
+    rmse: float | None = None
 
 
 @dataclass
-class CCStep(Step):
+class CCStep(CyclingStep):
     current: float = np.nan
     voltageStart: float = np.nan
     voltageEnd: float = np.nan
 
 
 @dataclass
-class CVStep(Step):
+class CVStep(CyclingStep):
     voltage: float = np.nan
     currentStart: float = np.nan
     currentEnd: float = np.nan
 
 
 @dataclass
-class CPStep(Step):
+class CPStep(CyclingStep):
     power: float = np.nan
     voltageStart: float = np.nan
     voltageEnd: float = np.nan
@@ -137,6 +148,17 @@ class CPStep(Step):
 
 
 @dataclass
-class Pause(Step):
+class Pause(CyclingStep):
     voltageStart: float = np.nan
     voltageEnd: float = np.nan
+
+
+@dataclass
+class EISStep(Step):
+    batteryVoltage: float | None = None
+    frequency: float | None = None
+    real: float | None = None
+    imaginary: float | None = None
+    amplitude: float | None = None
+    phase: float | None = None
+    excitationAmplitude: float | None = None

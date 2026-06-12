@@ -179,8 +179,8 @@ class Embedded(Entity[int]):
 
 
 _ENTITY_FILES: "typing.Dict[str, typing.Dict[str, FileSpec]]" = {}
-_ENTITY_IDENTIFIERS = {}
-_ENTITY_COLLECTIONS = {}
+_ENTITY_IDENTIFIERS: "typing.Dict[str, str]" = {}
+_ENTITY_COLLECTIONS: "typing.Dict[str, typing.Tuple[str, ...]]" = {}
 
 
 class Filetype(Enum):
@@ -188,6 +188,7 @@ class Filetype(Enum):
     PARQUET = 1
     PICKLE = 2
     CSV = 3
+    TEXT = 4
 
 
 EXTENSIONS = {
@@ -195,6 +196,7 @@ EXTENSIONS = {
     Filetype.PARQUET: "parquet",
     Filetype.PICKLE: "pickle",
     Filetype.CSV: "csv",
+    Filetype.TEXT: "txt",
 }
 
 MIMETYPES = {
@@ -202,6 +204,7 @@ MIMETYPES = {
     Filetype.PARQUET: "application/octet-stream",
     Filetype.PICKLE: "application/octet-stream",
     Filetype.CSV: "application/csv",
+    Filetype.TEXT: "plain/text",
 }
 
 

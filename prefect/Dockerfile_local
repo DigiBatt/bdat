@@ -1,0 +1,6 @@
+FROM prefecthq/prefect:2.18.0-python3.10
+COPY ./mvl /opt/mvl
+COPY ./cadi-templates /opt/cadi-templates
+COPY ./bdat /opt/bdat
+RUN pip install /opt/mvl /opt/cadi-templates /opt/bdat
+WORKDIR /opt/bdat/

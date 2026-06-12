@@ -8,7 +8,7 @@ from bdat.database.storage.entity import Entity
 from bdat.database.storage.storage import Storage
 from bdat.dataimport import import_rules
 from bdat.entities.dataspec.column_spec import Unit
-from bdat.entities.dataspec.data_spec import DataSpec
+from bdat.entities.dataspec.data_spec import CyclingDataSpec
 from bdat.entities.plots import Plotdata
 from bdat.plots.plot import plot
 
@@ -25,7 +25,7 @@ def plot_testeval_details(
     storage: Storage,
     testeval: Entity,
     df: pd.DataFrame | None = None,
-    dataspec: DataSpec | None = None,
+    dataspec: CyclingDataSpec | None = None,
     timerange: typing.Tuple[float, float] | None = None,
 ) -> Plotdata:
     alt.data_transformers.disable_max_rows()

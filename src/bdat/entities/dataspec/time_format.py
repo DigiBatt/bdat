@@ -13,6 +13,9 @@ class TimeFormat(ABC):
     def toSeconds(self, values: np.ndarray) -> np.ndarray:
         raise NotImplementedError()
 
+    def toTimestamp(self, values: np.ndarray) -> np.ndarray:
+        raise NotImplementedError()
+
 
 @dataclass
 class Seconds(TimeFormat):
@@ -29,6 +32,21 @@ class Timestamp(TimeFormat):
             return np.array(values.value / 1e9)
         if isinstance(values, np.ndarray) and values.dtype == pd.Timestamp:
             values = np.array([t.value for t in values])
+        if isinstance(values, np.ndarray) and np.issubdtype(
+            values.dtype, np.datetime64
+        ):
+            return values.astype(int)
+        return np.array([int(t) for t in values]) / 1e9
+
+    def toTimestamp(self, values: np.ndarray | pd.Timestamp) -> np.ndarray:
+        if isinstance(values, pd.Timestamp):
+            return np.array(values.value / 1e9)
+        if isinstance(values, np.ndarray) and values.dtype == pd.Timestamp:
+            values = np.array([t.value for t in values])
+        if isinstance(values, np.ndarray) and np.issubdtype(
+            values.dtype, np.datetime64
+        ):
+            return values.astype(int)
         return np.array([int(t) for t in values]) / 1e9
 
 

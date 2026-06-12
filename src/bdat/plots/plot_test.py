@@ -8,7 +8,7 @@ from bdat.database.storage.entity import Entity
 from bdat.database.storage.storage import Storage
 from bdat.dataimport import import_rules
 from bdat.entities.dataspec.column_spec import Unit
-from bdat.entities.dataspec.data_spec import DataSpec
+from bdat.entities.dataspec.data_spec import CyclingDataSpec
 from bdat.entities.plots import Plotdata
 from bdat.entities.test.cycling_data import CyclingData
 from bdat.plots.plot import plot
@@ -19,7 +19,7 @@ def plot_test(
     storage: Storage,
     cycling: Entity | CyclingData,
     df: pd.DataFrame | None = None,
-    dataspec: DataSpec | None = None,
+    dataspec: CyclingDataSpec | None = None,
     timerange: typing.Tuple[float, float] | None = None,
     timeAxis: bool = False,
     samples: int = 1000,
@@ -101,7 +101,7 @@ def plot_test(
     chart = alt.layer(current, voltage).resolve_scale(y="independent")
 
     return Plotdata(
-        f"plot {cycling.title}",
+        f"plot {test.title}",
         test,
         "test",
         {"test": dfValues},

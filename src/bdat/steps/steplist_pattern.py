@@ -265,3 +265,28 @@ class Or(SteplistPattern):
 
     def to_str(self) -> str:
         return f"or({','.join([p.to_str() for p in self.patterns])})"
+
+
+class Not(SteplistPattern):
+    pattern: SteplistPattern
+
+    def __init__(
+        self,
+        pattern: SteplistPattern,
+    ):
+        self.pattern = pattern
+
+    def match_at_position(self, steplist: list[Step], position: int) -> Match | None:
+        m = self.pattern.match_at_position(steplist, position)
+        if m is None:
+            return Match(
+                position,
+                position + 1,
+                1,
+                self,
+                steplist[position : position + 1],
+            )
+        return None
+
+    def to_str(self) -> str:
+        return f"not({self.pattern.to_str()})"

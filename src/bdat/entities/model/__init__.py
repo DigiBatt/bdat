@@ -1,0 +1,1 @@
+from .equivalent_circuit_model import EquivalentCircuitModel

@@ -88,3 +88,31 @@ class Calculate(ChargeSpec):
             ),
         )
         return current * dt / 3600
+
+
+@dataclass
+class FourColumns(ChargeSpec):
+    chargeColumn: ColumnSpec
+    dischargeColumn: ColumnSpec
+    diffChargeColumn: ColumnSpec
+    stepChargeColumn: ColumnSpec
+
+    def getChargeAh(self, df: pd.DataFrame) -> np.ndarray:
+        charge = df[self.chargeColumn.name].to_numpy(dtype=np.float64)
+        return self.chargeColumn.unit.convert(charge, Unit.BASE)
+
+    def getDischargeAh(self, df: pd.DataFrame) -> np.ndarray:
+        discharge = df[self.dischargeColumn.name].to_numpy(dtype=np.float64)
+        return self.dischargeColumn.unit.convert(discharge, Unit.BASE)
+
+    def getDiffAh(self, df: pd.DataFrame) -> np.ndarray:
+        diffcharge = df[self.diffChargeColumn.name].to_numpy(dtype=np.float64)
+        return self.diffChargeColumn.unit.convert(diffcharge, Unit.BASE)
+
+    def getColumns(self) -> List[ColumnSpec | TimeColumnSpec]:
+        return [
+            self.chargeColumn,
+            self.dischargeColumn,
+            self.diffChargeColumn,
+            self.stepChargeColumn,
+        ]

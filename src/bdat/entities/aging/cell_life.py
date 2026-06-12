@@ -1,7 +1,7 @@
 import typing
 from dataclasses import dataclass
 
-from bdat.database.storage.entity import Filetype, file, identifier
+from bdat.database.storage.entity import Filetype, collections, file, identifier
 from bdat.entities.aging.aging_conditions import AgingConditions
 from bdat.entities.aging.testmatrix import Testmatrix
 from bdat.entities.cadi_templates import Battery
@@ -16,6 +16,7 @@ from bdat.entities.patterns.test_eval import TestEval
 @file("capacity", "capacity", Filetype.JSON)
 @file("resistance", "resistance", Filetype.JSON)
 @file("plotdata", "plotdata_{key}", Filetype.JSON, explode=True)
+@collections("battery")
 class CellLife(DataProcessing):
     battery: Battery
     conditions: typing.List[AgingConditions]

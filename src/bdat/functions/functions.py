@@ -4,13 +4,12 @@ import operator
 import pprint
 import typing
 from datetime import datetime
-from typing import Any, Callable, List, Sequence
+from typing import Any, Callable, Sequence
 
 import bson
 import pandas as pd
 
 import bdat.entities as entities
-import bdat.resources.dataspec.bm
 import bdat.steps
 from bdat.database.exceptions.database_conflict_exception import (
     DatabaseConflictException,
@@ -25,10 +24,13 @@ from bdat.database.storage.resource_id import (
 from bdat.database.storage.storage import Storage
 from bdat.dataimport import import_rules
 from bdat.entities.aging.aging_conditions import combine_conditions
+from bdat.entities.dataspec.data_spec import CyclingDataSpec, EISDataSpec
 from bdat.entities.patterns.test_eval import TestEval
 from bdat.entities.plots import Plotdata
+from bdat.entities.steps.step import EISStep
 from bdat.entities.steps.steplist import Steplist
 from bdat.entities.test.cycling_data import CyclingData
+from bdat.entities.test.eis_data import EISData
 from bdat.exceptions import (
     MissingDependencyException,
     NoCyclingDataException,
@@ -42,15 +44,18 @@ from bdat.plots.plot_celllife import plot_celllife
 from bdat.plots.plot_steps import plot_steps
 from bdat.plots.plot_testevals import plot_testevals
 from bdat.resources.patterns import (
+    EIS,
     Captest,
     ChargeQOCV,
     CPChargeQOCV,
     CPDischargeQOCV,
     DischargeQOCV,
+    FullCharge,
     Pulse,
     Testinfo,
     UniformCycling,
 )
+from bdat.steps.find_steps import find_eis_steps
 from bdat.tools.cli import print_info
 from bdat.tools.misc import (
     is_similar_obj,
@@ -100,7 +105,7 @@ def steps(
     if not test:
         raise Exception("Could not find resource")
     # dataId = ResourceId(test_id.collection, test.data, entities.Cycling)
-    if not import_rules.could_be_cycling(test):
+    if not (import_rules.could_be_cycling(test) or import_rules.could_be_eis(test)):
         raise NoCyclingDataException(test)
     datafile = storage.get_file(test_id)
     if datafile is None:
@@ -110,30 +115,21 @@ def steps(
     except Exception as e:
         raise ParquetFormatException(e)
     dataspec = import_rules.get_dataspec(test, df)
-    data = CyclingData(test, df, dataspec, 0, 0, None)
-    try:
-        steplist = bdat.steps.find_steps(data)
-        plotdata = plot_steps(storage, steplist, df)
-        steplist.plotdata = plotdata.data
+    if isinstance(dataspec, CyclingDataSpec):
+        data = CyclingData(test, df, dataspec, 0, 0)
+        steplist: Steplist = bdat.steps.find_steps(data)
+        if len(steplist.steps) > 0:
+            plotdata = plot_steps(storage, steplist, df)
+            steplist.plotdata = plotdata.data
+    elif isinstance(dataspec, EISDataSpec):
+        eisdata = EISData(test, df, dataspec)
+        steplist = find_eis_steps(eisdata)
         if not test.end:
             steplist.state = "preliminary"
-    except Exception as e:
-        # if target_id:
-        #     steplist = Steplist([], test, repr(e))
-        #     storage.put(target_id, steplist).to_str()
-        raise e
+    if not test.end:
+        steplist.state = "preliminary"
     if target_id:
-        if isinstance(replace, ResourceId):
-            storage.replace(replace, steplist)
-        else:
-            try:
-                storage.put(target_id, steplist)
-            except DatabaseConflictException as e:
-                if replace:
-                    replace_id = ResourceId(target_id, e.conflicting_id, Steplist)
-                    storage.replace(replace_id, steplist)
-                else:
-                    raise e
+        put_or_replace(storage, target_id, steplist, replace)
 
     if return_str:
         return steplist.res_id_or_raise().to_str()
@@ -144,24 +140,26 @@ def steps(
 @typing.overload
 def patterns(
     storage: Storage,
-    steplist_id: ResourceId[str, entities.Steplist],
+    steplist_id: ResourceId[str, Steplist],
     target_id: CollectionId,
     debug: bool,
     patterntype: str | None,
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool = False,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...] = tuple(),
+    ignore_previous: bool = False,
 ) -> TestEval | None: ...
 
 
 @typing.overload
 def patterns(
     storage: Storage,
-    steplist_id: ResourceId[str, entities.Steplist],
+    steplist_id: ResourceId[str, Steplist],
     target_id: CollectionId,
     debug: bool,
     patterntype: str | None,
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
+    ignore_previous: bool,
     return_str: typing.Literal[False],
 ) -> TestEval | None: ...
 
@@ -169,24 +167,26 @@ def patterns(
 @typing.overload
 def patterns(
     storage: Storage,
-    steplist_id: ResourceId[str, entities.Steplist],
+    steplist_id: ResourceId[str, Steplist],
     target_id: CollectionId,
     debug: bool,
     patterntype: str | None,
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...],
+    ignore_previous: bool,
     return_str: typing.Literal[True],
 ) -> str | None: ...
 
 
 def patterns(
     storage: Storage,
-    steplist_id: ResourceId[str, entities.Steplist],
+    steplist_id: ResourceId[str, Steplist],
     target_id: CollectionId,
     debug: bool,
     patterntype: str | None,
     replace: ResourceId[bson.ObjectId, entities.TestEval] | bool = False,
     ignore_test: typing.Tuple[ResourceId[str, entities.Battery], ...] = tuple(),
+    ignore_previous: bool = False,
     return_str: bool = False,
 ) -> TestEval | str | None:
     steplist = storage.get(steplist_id)
@@ -196,53 +196,73 @@ def patterns(
     #     return None
     test = steplist.test.__get__(None, None)  # type: ignore
     test_id = test.res_id_or_raise()
-    testlist = [
-        t
-        for t in storage.query(
-            test_id.collection,
-            entities.Cycling,
-            {
-                "type": "cycling",
-                "outgoing": [
-                    {
-                        "name": "object",
-                        "to": {"id": steplist.test.object.res_id_or_raise().id},
-                    }
-                ],
-            },
-        )
-        if import_rules.could_be_cycling(t) and not t.res_id_or_raise() in ignore_test
-    ]
-    testlist.sort(key=lambda t: t.start if t.start else 0)
     previous = None
-
-    for test_idx, t in enumerate(testlist):
-        if t.res_id_or_raise().id == test_id.id:
-            break
+    if len(steplist.steps) > 0:
+        eis = isinstance(steplist[0], EISStep)
     else:
-        raise Exception("Could not find test in testlist")
-    if test_idx > 0:
-        prev_test = testlist[test_idx - 1]
-        prev_id = prev_test.res_id_or_raise()
-        prev_evals = storage.find(None, entities.TestEval, {"test": prev_id.to_str()})
-        if len(prev_evals) == 0:
-            prev_steplist = storage.find(
-                None, entities.Steplist, {"test": prev_id.to_str()}
+        eis = import_rules.could_be_eis(test)
+    if not ignore_previous:
+        testlist = [
+            t
+            for t in storage.query(
+                test_id.collection,
+                entities.Cycling,
+                {
+                    "type": "cycling",
+                    "outgoing": [
+                        {
+                            "name": "object",
+                            "to": {"id": steplist.test.object.res_id_or_raise().id},
+                        }
+                    ],
+                },
             )
-            if len(prev_steplist) == 0:
-                raise MissingDependencyException(
-                    entities.Steplist,
-                    prev_test,
-                    f"{test_id.to_str()}: Previous test ({prev_id.to_str()}) has no Steplist",
-                )
+            if import_rules.could_be_cycling(t)
+            and not t.res_id_or_raise() in ignore_test
+        ]
+        testlist.sort(key=lambda t: t.start if t.start else 0)
+
+        prev_test = None
+        if eis:
+            for t in testlist[::-1]:
+                if t.start <= test.start and (t.end is None or t.end >= test.start):
+                    prev_test = t
+                    break
+        else:
+            for test_idx, t in enumerate(testlist):
+                if t.res_id_or_raise().id == test_id.id:
+                    break
             else:
-                raise MissingDependencyException(
-                    entities.TestEval,
-                    prev_steplist[0],
-                    f"{test_id.to_str()}: Previous test ({prev_id.to_str()}) has no TestEval",
+                raise Exception("Could not find test in testlist")
+            if test_idx > 0:
+                prev_test = testlist[test_idx - 1]
+        if prev_test:
+            prev_id = prev_test.res_id_or_raise()
+            prev_evals = storage.find(
+                None, entities.TestEval, {"test": prev_id.to_str()}
+            )
+            if len(prev_evals) == 0:
+                prev_steplist = storage.find(
+                    None, entities.Steplist, {"test": prev_id.to_str()}
                 )
-        previous = prev_evals[0]
-    testeval = __patterns(storage, test, steplist, patterntype, previous, debug)
+                if len(prev_steplist) == 0:
+                    raise MissingDependencyException(
+                        entities.Steplist,
+                        prev_test,
+                        f"{test_id.to_str()}: Previous test ({prev_id.to_str()}) has no Steplist",
+                    )
+                else:
+                    raise MissingDependencyException(
+                        entities.TestEval,
+                        prev_steplist[0],
+                        f"{test_id.to_str()}: Previous test ({prev_id.to_str()}) has no TestEval",
+                    )
+            previous = prev_evals[0]
+
+    if eis:
+        testeval = __eis_patterns(storage, test, steplist, previous, debug)
+    else:
+        testeval = __patterns(storage, test, steplist, patterntype, previous, debug)
     if target_id:
         if isinstance(replace, ResourceId):
             storage.replace(replace, testeval)
@@ -405,11 +425,12 @@ def __patterns(
             raise RuntimeError(
                 f"{test_id.to_str()}: Previous testeval ({previous.res_id_or_raise().to_str()}) has no TestinfoEval"
             )
-    if steplist[0].start == 0:
+    if len(steplist.steps) > 0 and steplist[0].start == 0:
         if test.start is not None:
             steplist.set_time(datetime.timestamp(test.start))
     # captests first so they can adjust the SOC estimate
     patterntypes = [
+        FullCharge(**eval_rules.get_pattern_args(steplist, FullCharge)),
         Captest(**eval_rules.get_pattern_args(steplist, Captest)),
         DischargeQOCV(**eval_rules.get_pattern_args(steplist, DischargeQOCV)),
         CPDischargeQOCV(**eval_rules.get_pattern_args(steplist, CPDischargeQOCV)),
@@ -437,7 +458,9 @@ def __patterns(
                 except Exception as ex:
                     raise ParquetFormatException(ex)
             dataspec = import_rules.get_dataspec(test, df)
-            data = CyclingData(test, df, dataspec, 0, 0, None)
+            if not isinstance(dataspec, CyclingDataSpec):
+                raise Exception("Must be cycling data")
+            data = CyclingData(test, df, dataspec, 0, 0)
         else:
             data = None
         test_evals = [
@@ -445,7 +468,17 @@ def __patterns(
             for match in matches
         ]
         for e in test_evals:
-            if isinstance(e, entities.patterns.DischargeCapacityEval):
+            if isinstance(e, entities.patterns.FullChargeEval):
+                cha_step = steplist[e.lastStep]
+                cha_step.socEnd = 100
+                if (
+                    len(steplist) > cha_step.stepId + 1
+                    and cha_step.capacity is not None
+                ):
+                    steplist.continue_soc(
+                        cha_step.socEnd, cha_step.capacity, cha_step.stepId + 1
+                    )
+            elif isinstance(e, entities.patterns.DischargeCapacityEval):
                 dch_step = steplist[e.lastStep]
                 dch_step.capacity = abs(e.capacity)
                 dch_step.socEnd = 0
@@ -459,6 +492,92 @@ def __patterns(
     )
     plotdata = plot_testevals(storage, testeval)
     testeval.plotdata = plotdata.data
+    return testeval
+
+
+def __eis_patterns(
+    storage: Storage,
+    test: entities.Cycling,
+    steplist: entities.Steplist,
+    previous: typing.Optional[TestEval],
+    debug: bool,
+) -> TestEval:
+    testresult = []
+    df = None
+    test_id = test.res_id_or_raise()
+    if not steplist.test.object.type:
+        raise Exception("Unknown species")
+    if previous is None:
+        steplist.continue_counters(0, 0, 0)
+    elif len(steplist.steps) > 0:
+        prevSteplist = previous.steps
+        if isinstance(prevSteplist, entities.Steplist):
+            prevSteplist.rebuild_counters_from_eval(previous)
+        if steplist.steps[0].startTime is None:
+            raise RuntimeError(
+                f"{test_id.to_str()}: Could not find matching step in previous steplist ({prevSteplist.res_id_or_raise().to_str()}) to continue counters"
+            )
+        for step in prevSteplist.steps:
+            if step.endTime is not None and (
+                step.endTime >= steplist.steps[0].startTime
+            ):
+                if (
+                    step.chargeEnd is None
+                    or step.dischargeEnd is None
+                    or step.ageEnd is None
+                    or test.start is None
+                ):
+                    raise RuntimeError(
+                        f"{test_id.to_str()}: Could not find matching step in previous steplist ({prevSteplist.res_id_or_raise().to_str()}) to continue counters"
+                    )
+                steplist.continue_from_counters(
+                    step.chargeEnd,
+                    step.dischargeEnd,
+                    step.ageEnd,
+                    test.start,
+                    step.socEnd,
+                    step.capacity,
+                )
+                break
+        else:
+            raise RuntimeError(
+                f"{test_id.to_str()}: Could not find matching step in previous steplist ({prevSteplist.res_id_or_raise().to_str()}) to continue counters"
+            )
+    # if steplist[0].start == 0:
+    #     if test.start is not None:
+    #         steplist.set_time(datetime.timestamp(test.start))
+    patterntypes = [EIS(**eval_rules.get_pattern_args(steplist, EIS))]
+    for pt in patterntypes:
+        pattern = pt.pattern(steplist.test.object.type)
+        if debug:
+            print(pt.__class__.__name__)
+            print(pattern.to_str())
+        matches = pattern.match(steplist)
+        if matches and pt.eval_needs_data():
+            if df is None:
+                datafile = storage.get_file(test_id)
+                if datafile is None:
+                    raise Exception("Test has no data")
+                try:
+                    df = pd.read_parquet(datafile)
+                except Exception as ex:
+                    raise ParquetFormatException(ex)
+            dataspec = import_rules.get_dataspec(test, df)
+            if not isinstance(dataspec, EISDataSpec):
+                raise Exception("Must be EIS dataspec")
+            data = EISData(test, df, dataspec)
+        else:
+            data = None
+        test_evals: typing.List[entities.PatternEval] = [
+            pt.eval(steplist.test, match, steplist[match.start : match.end], data)
+            for match in matches
+        ]
+        testresult += test_evals
+    testeval = TestEval(
+        f"test eval - {test.title}", test, steplist, testresult, previous=previous
+    )
+    # plotdata = plot_testevals(storage, testeval)
+    # testeval.plotdata = plotdata.data
     return testeval
 
 
@@ -1283,8 +1402,20 @@ def aging_data(
         return pprint.pformat(Storage.res_to_dict(agingdata))
 
 
-def __first_or_none(l):
-    if len(l) > 0:
-        return l[0]
+def put_or_replace(
+    storage: Storage,
+    target_id: CollectionId,
+    resource: Entity,
+    replace: ResourceId | bool,
+):
+    if isinstance(replace, ResourceId):
+        storage.replace(replace, resource)
     else:
-        return None
+        try:
+            storage.put(target_id, resource)
+        except DatabaseConflictException as e:
+            if replace:
+                replace_id = ResourceId(target_id, e.conflicting_id, Steplist)
+                storage.replace(replace_id, resource)  # type: ignore
+            else:
+                raise e

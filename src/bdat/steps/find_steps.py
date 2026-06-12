@@ -2,9 +2,18 @@ from typing import List, Type, cast
 
 import numpy as np
 
-from bdat.entities.steps.step import CCStep, CPStep, CVStep, Pause, Step
+from bdat.entities.steps.step import (
+    CCStep,
+    CPStep,
+    CVStep,
+    CyclingStep,
+    EISStep,
+    Pause,
+    Step,
+)
 from bdat.entities.steps.steplist import Steplist
 from bdat.entities.test.cycling_data import CyclingData
+from bdat.entities.test.eis_data import EISData
 from bdat.tools.cli import print_info
 
 
@@ -31,15 +40,17 @@ def _get_step(
     rowStart: int,
     rowEnd: int,
     steptype: Type | None = None,
-) -> Step:
+) -> CyclingStep:
     current = data.current
     voltage = data.voltage
-    start = data.time[rowStart]
-    end = data.time[rowEnd - 1]
+    start = data.duration[rowStart]
+    end = data.duration[rowEnd - 1]
     dI = current[rowEnd - 1] - current[rowStart]
     dV = voltage[rowEnd - 1] - voltage[rowStart]
     dt = end - start
     charge = data.diffcharge[rowEnd - 1] - data.diffcharge[rowStart]
+    startTime = None if data.time is None else data.time[rowStart]
+    endTime = None if data.time is None else data.time[rowEnd - 1]
 
     if data.temperature is not None:
         temperature = data.temperature
@@ -72,23 +83,25 @@ def _get_step(
         vMean = values.mean()
         vError = values - vMean
         return CVStep(
-            stepId,
-            start,
-            end,
-            rowStart,
-            rowEnd,
-            dt,
-            charge,
-            temperatureStart,
-            temperatureEnd,
-            temperatureMin,
-            temperatureMax,
-            temperatureMean,
-            np.max(np.abs(vError)),
-            np.sqrt(np.mean(np.square(vError))),
-            vMean,
-            current[rowStart],
-            (
+            stepId=stepId,
+            start=start,
+            end=end,
+            rowStart=rowStart,
+            rowEnd=rowEnd,
+            duration=dt,
+            charge=charge,
+            startTime=startTime,
+            endTime=endTime,
+            temperatureStart=temperatureStart,
+            temperatureEnd=temperatureEnd,
+            temperatureMin=temperatureMin,
+            temperatureMax=temperatureMax,
+            temperatureMean=temperatureMean,
+            maxError=np.max(np.abs(vError)),
+            rmse=np.sqrt(np.mean(np.square(vError))),
+            voltage=vMean,
+            currentStart=current[rowStart],
+            currentEnd=(
                 np.median(current[rowEnd - 5 : rowEnd])
                 if useMedian
                 else current[rowEnd - 1]
@@ -99,23 +112,25 @@ def _get_step(
         vMean = values.mean()
         vError = values - vMean
         return CCStep(
-            stepId,
-            start,
-            end,
-            rowStart,
-            rowEnd,
-            dt,
-            charge,
-            temperatureStart,
-            temperatureEnd,
-            temperatureMin,
-            temperatureMax,
-            temperatureMean,
-            np.max(np.abs(vError)),
-            np.sqrt(np.mean(np.square(vError))),
-            vMean,
-            voltage[rowStart],
-            (
+            stepId=stepId,
+            start=start,
+            end=end,
+            rowStart=rowStart,
+            rowEnd=rowEnd,
+            duration=dt,
+            charge=charge,
+            startTime=startTime,
+            endTime=endTime,
+            temperatureStart=temperatureStart,
+            temperatureEnd=temperatureEnd,
+            temperatureMin=temperatureMin,
+            temperatureMax=temperatureMax,
+            temperatureMean=temperatureMean,
+            maxError=np.max(np.abs(vError)),
+            rmse=np.sqrt(np.mean(np.square(vError))),
+            current=vMean,
+            voltageStart=voltage[rowStart],
+            voltageEnd=(
                 np.median(voltage[rowEnd - 5 : rowEnd])
                 if useMedian
                 else voltage[rowEnd - 1]
@@ -126,22 +141,24 @@ def _get_step(
         vMean = values.mean()
         vError = values - vMean
         return Pause(
-            stepId,
-            start,
-            end,
-            rowStart,
-            rowEnd,
-            dt,
-            charge,
-            temperatureStart,
-            temperatureEnd,
-            temperatureMin,
-            temperatureMax,
-            temperatureMean,
-            np.max(np.abs(vError)),
-            np.sqrt(np.mean(np.square(vError))),
-            voltage[rowStart],
-            (
+            stepId=stepId,
+            start=start,
+            end=end,
+            rowStart=rowStart,
+            rowEnd=rowEnd,
+            duration=dt,
+            charge=charge,
+            startTime=startTime,
+            endTime=endTime,
+            temperatureStart=temperatureStart,
+            temperatureEnd=temperatureEnd,
+            temperatureMin=temperatureMin,
+            temperatureMax=temperatureMax,
+            temperatureMean=temperatureMean,
+            maxError=np.max(np.abs(vError)),
+            rmse=np.sqrt(np.mean(np.square(vError))),
+            voltageStart=voltage[rowStart],
+            voltageEnd=(
                 np.median(voltage[rowEnd - 5 : rowEnd])
                 if useMedian
                 else voltage[rowEnd - 1]
@@ -152,25 +169,27 @@ def _get_step(
         vMean = values.mean()
         vError = values - vMean
         return CPStep(
-            stepId,
-            start,
-            end,
-            rowStart,
-            rowEnd,
-            dt,
-            charge,
-            temperatureStart,
-            temperatureEnd,
-            temperatureMin,
-            temperatureMax,
-            temperatureMean,
-            np.max(np.abs(vError)),
-            np.sqrt(np.mean(np.square(vError))),
-            vMean,
-            voltage[rowStart],
-            voltage[rowEnd - 1],
-            current[rowStart],
-            current[rowEnd - 1],
+            stepId=stepId,
+            start=start,
+            end=end,
+            rowStart=rowStart,
+            rowEnd=rowEnd,
+            duration=dt,
+            charge=charge,
+            startTime=startTime,
+            endTime=endTime,
+            temperatureStart=temperatureStart,
+            temperatureEnd=temperatureEnd,
+            temperatureMin=temperatureMin,
+            temperatureMax=temperatureMax,
+            temperatureMean=temperatureMean,
+            maxError=np.max(np.abs(vError)),
+            rmse=np.sqrt(np.mean(np.square(vError))),
+            power=vMean,
+            voltageStart=voltage[rowStart],
+            voltageEnd=voltage[rowEnd - 1],
+            currentStart=current[rowStart],
+            currentEnd=current[rowEnd - 1],
         )
 
     else:
@@ -252,7 +271,7 @@ def __find_best_step(
     maxPowerRMSE: float,
     startIdx: int,
     stepId: int,
-) -> Step | None:
+) -> CyclingStep | None:
     steptype: Type | None = None
     if data.current[startIdx] == 0:
         stepLength = np.argmax(data.current[startIdx:] != 0).item()
@@ -287,7 +306,7 @@ def _find_step_length(values: np.ndarray, maxError: float, maxRMSE: float) -> in
     searchLength = min(500, values.size - 1)
     maxLength = searchLength
     while maxLength >= searchLength and maxLength < values.size:
-        searchLength = min(2 * searchLength, values.size)
+        searchLength = min(2 * searchLength + 1, values.size)
         maxLength = searchLength
         vSearch = values[:searchLength]
         if len(vSearch) == 0:
@@ -305,3 +324,71 @@ def _find_step_length(values: np.ndarray, maxError: float, maxRMSE: float) -> in
             else:
                 maxLength = testLength - 1
     return maxLength
+
+
+def find_eis_steps(data: EISData) -> Steplist:
+    steps: List[Step] = []
+    stepId = 0
+    startIdx = 0
+    while startIdx < len(data.df):
+        stepLength = _find_step_length(data.frequency[startIdx:], 0, 0)
+        step = _get_eis_step(data, stepId, startIdx, startIdx + stepLength)
+        if step.frequency is not None and step.frequency > 0.0:
+            steps.append(step)
+            stepId += 1
+        startIdx = step.rowEnd
+    return Steplist(f"EIS steps - {data.test.title}", steps, data.test)
+
+
+def _get_eis_step(
+    data: EISData,
+    stepId: int,
+    rowStart: int,
+    rowEnd: int,
+) -> EISStep:
+    idxLast = rowEnd
+    if len(data.duration) <= idxLast:
+        idxLast = rowEnd - 1
+    start = data.duration[rowStart]
+    end = data.duration[idxLast]
+    dt = end - start
+    startTime = None if data.time is None else data.time[rowStart]
+    endTime = None if data.time is None else data.time[rowEnd - 1]
+
+    if data.temperature is not None:
+        temperature = data.temperature
+        temperatureStart = temperature[rowStart]
+        temperatureEnd = temperature[idxLast]
+        temperatureMin = temperature[rowStart:rowEnd].min()
+        temperatureMax = temperature[rowStart:rowEnd].max()
+        temperatureMean = temperature[rowStart:rowEnd].mean()
+    else:
+        temperatureStart = None
+        temperatureEnd = None
+        temperatureMin = None
+        temperatureMax = None
+        temperatureMean = None
+
+    return EISStep(
+        stepId=stepId,
+        start=start,
+        end=end,
+        rowStart=rowStart,
+        rowEnd=rowEnd,
+        duration=dt,
+        charge=0,
+        startTime=startTime,
+        endTime=endTime,
+        temperatureStart=temperatureStart,
+        temperatureEnd=temperatureEnd,
+        temperatureMin=temperatureMin,
+        temperatureMax=temperatureMax,
+        temperatureMean=temperatureMean,
+        batteryVoltage=data.batteryVoltage[rowStart:rowEnd].mean(),
+        frequency=data.frequency[rowStart:rowEnd].mean(),
+        real=data.real[rowStart:rowEnd].mean(),
+        imaginary=data.imaginary[rowStart:rowEnd].mean(),
+        amplitude=data.amplitude[rowStart:rowEnd].mean(),
+        phase=data.phase[rowStart:rowEnd].mean(),
+        excitationAmplitude=data.excitationAmplitude[rowStart:rowEnd].mean(),
+    )

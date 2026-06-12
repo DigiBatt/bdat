@@ -35,5 +35,7 @@ class PatternEval(Embedded):
         )
 
     def data(self, data: "CyclingData", context: float = 0) -> "pd.DataFrame":
-        mask = (data.time > (self.start - context)) & (data.time < (self.end + context))
+        mask = (data.duration > (self.start - context)) & (
+            data.duration < (self.end + context)
+        )
         return data.df[mask]

@@ -1,13 +1,14 @@
 import typing
 from dataclasses import dataclass, field
 
-from bdat.database.storage.entity import Filetype, file
+from bdat.database.storage.entity import Filetype, collections, file
 from bdat.entities.group.group import Group
 from bdat.entities.patterns import PatternEval, TestEval
 
 
 @dataclass
 @file("evaldata", "evaldata", Filetype.PICKLE)
+@collections("project", "testset")
 class EvalGroup(Group):
     evals: "typing.List[TestEval]" = field(default_factory=list)
     evaldata: "typing.List[PatternEval]" = field(default_factory=list)

@@ -20,7 +20,7 @@ from .entities import (
     ColumnSpec,
     Cycling,
     CyclingData,
-    DataSpec,
+    CyclingDataSpec,
     Seconds,
     SeparateColumns,
     TimeColumnSpec,

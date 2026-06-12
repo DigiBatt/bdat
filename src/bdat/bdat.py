@@ -404,6 +404,14 @@ def steps(
     required=False,
     multiple=True,
 )
+@click.option(
+    "ignore_previous",
+    "--ignore-previous",
+    is_flag=True,
+    type=bool,
+    default=False,
+    help="Ignore all previous tests",
+)
 @click.pass_obj
 def patterns(
     obj: Storage,
@@ -414,6 +422,7 @@ def patterns(
     patterntype: str | None,
     replace: bool,
     ignore_test: typing.Tuple[ResourceId[str, entities.Cycling]],
+    ignore_previous: bool,
 ):
     n = 0
     for result in run_parallel(
@@ -427,6 +436,7 @@ def patterns(
             "patterntype": patterntype,
             "replace": replace,
             "ignore_test": ignore_test,
+            "ignore_previous": ignore_previous,
             "return_str": False,
         },
         processes=parallel,

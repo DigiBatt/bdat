@@ -5,7 +5,7 @@ import pytest
 from bdat.dataimport.normalize import normalize, normalize_column
 from bdat.entities.dataspec.charge_spec import Calculate
 from bdat.entities.dataspec.column_spec import ColumnSpec, TimeColumnSpec, Unit
-from bdat.entities.dataspec.data_spec import DataSpec
+from bdat.entities.dataspec.data_spec import CyclingDataSpec
 from bdat.entities.dataspec.time_format import Datetime, Seconds, Timestamp
 
 
@@ -34,8 +34,9 @@ def test_normalize():
     )
     sourceDuration = TimeColumnSpec("t", Timestamp())
     sourceCurrent = ColumnSpec("i")
-    sourceSpec = DataSpec(
+    sourceSpec = CyclingDataSpec(
         "testspec",
+        sourceDuration,
         sourceDuration,
         sourceCurrent,
         ColumnSpec("v", Unit.MILLI),
@@ -43,8 +44,9 @@ def test_normalize():
     )
     targetDuration = TimeColumnSpec("Duration", Seconds())
     targetCurrent = ColumnSpec("Current", Unit.MILLI)
-    targetSpec = DataSpec(
+    targetSpec = CyclingDataSpec(
         "testspec",
+        targetDuration,
         targetDuration,
         targetCurrent,
         ColumnSpec("Voltage"),
