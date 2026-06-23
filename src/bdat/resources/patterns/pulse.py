@@ -37,6 +37,9 @@ class Pulse(EvalPattern):
     #: Current of the pulse in A. If this is a tuple, the current must lie between the two values. If this is a float, a tuple will be constructed by multiplying the value with 0.95 and 1.05.
     current: float | Tuple[float, float] | None = None
 
+    #: Minimum value of the pulse current. This can be used to exclude small currents if the current argument spans positive and negative values.
+    minCurrent: float | None = None
+
     #: Duration of the pulse in seconds. If this is a tuple, the duration must lie between the two values. If this is a float, a tuple will be constructed by multiplying the value with 0.95 and 1.05.
     duration: float | Tuple[float, float] | None = None
 
@@ -72,10 +75,17 @@ class Pulse(EvalPattern):
         if self.allowTransitionStep:
             series.append(Repeat(self.transitionStep, 0, 3))
         if self.allowCVStep:
+            ccDuration = None
+        else:
+            ccDuration = duration
+        if self.minCurrent is None:
+            self.pulseStep = CCProperties(current=current, duration=ccDuration)
+        else:
             self.pulseStep = And(
-                CCProperties(current=current),
+                CCProperties(current=current, duration=ccDuration),
                 Not(CCProperties(current=(-0.01, 0.01))),
             )
+        if self.allowCVStep:
             self.cvStep: CVProperties | None = CVProperties(voltage=cvVoltage)
             series.append(
                 Or(
@@ -84,10 +94,6 @@ class Pulse(EvalPattern):
                 )
             )
         else:
-            self.pulseStep = And(
-                CCProperties(current=current, duration=duration),
-                Not(CCProperties(current=(-0.01, 0.01), duration=duration)),
-            )
             self.cvStep = None
             series.append(self.pulseStep)
 
